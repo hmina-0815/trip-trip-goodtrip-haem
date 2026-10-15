@@ -188,7 +188,13 @@ textarea.field{resize:vertical;min-height:70px}
 .wgroup{margin-bottom:16px}
 .wgroup h3{display:flex;align-items:baseline;gap:8px;font-size:15px;margin:0 0 6px}
 .wgroup h3 span{color:var(--muted);font-weight:500;font-size:12.5px}
-.wgroup h3 button{margin-left:auto}
+.wgroup h3 button.mini{margin-left:auto}
+.wfold{border:0;background:none;padding:2px 0;font:inherit;font-weight:700;color:inherit;display:inline-flex;align-items:baseline;gap:6px;cursor:pointer;text-align:left}
+.wfold::before{content:"▾";font-size:11px;color:var(--muted);width:10px;display:inline-block}
+.wgroup.folded .wfold::before{content:"▸"}
+.wgroup.folded h3{margin:0}
+.wgroup.folded{margin-bottom:8px}
+.foldall{border:0;background:none;color:var(--accent);font-size:12.5px;font-weight:600;padding:2px 0}
 .wgroup .mlist{margin:0;gap:4px}
 .wgroup .mlist li{padding:7px 10px;border-left:3px solid var(--c)}
 .wtag{font-size:12px;color:var(--muted);flex:none}
@@ -339,7 +345,7 @@ textarea.field{resize:vertical;min-height:70px}
       <div id="wishPanel" class="memo" hidden>
         <h2>샵리스트</h2>
         <p class="sub">가고 싶은 가게를 지역과 종류로 모아 두세요. 지역을 역 이름으로 적으면 지도에 묶음으로 표시돼요.</p>
-        <div class="wtools"><div class="seg" role="tablist" id="wGroup"><button data-wg="area" aria-selected="true">지역별</button><button data-wg="cat" aria-selected="false">종류별</button></div></div>
+        <div class="wtools"><div class="seg" role="tablist" id="wGroup"><button data-wg="area" aria-selected="true">지역별</button><button data-wg="cat" aria-selected="false">종류별</button></div><button class="foldall" id="wFoldAll">모두 접기</button></div>
         <div class="cats" id="wCats"></div>
         <div id="wishList"></div>
         <form class="wform" id="wishForm">
@@ -378,7 +384,7 @@ const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return 
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 
 const state = { meta: { title: '', start: '' }, days: [], check: [], wish: [], buy: [] };
-const ui = { day: lsGet('tp-day'), tab: 'plan', edit: false, showAll: false, showRoute: lsGet('tp-route') !== '0', showWish: false, wg: lsGet('tp-wg') === 'cat' ? 'cat' : 'area', wcat: null, sel: null, view: null, viewKey: '', btag: null, newTags: [], page: lsGet('tp-page') === '1' || location.hash === '#page' };
+const ui = { day: lsGet('tp-day'), tab: 'plan', edit: false, showAll: false, showRoute: lsGet('tp-route') !== '0', showWish: false, wg: lsGet('tp-wg') === 'cat' ? 'cat' : 'area', wcat: null, sel: null, view: null, viewKey: '', btag: null, newTags: [], wfold: new Set((() => { try { return JSON.parse(lsGet('tp-wfold') || '[]'); } catch (e) { return []; } })()), page: lsGet('tp-page') === '1' || location.hash === '#page' };
 let noCode = false, db = null, sample = null, readOnly = false, localMode = false, loaded = { meta: false, days: false };
 const deleted = new Set();
 
@@ -686,14 +692,18 @@ function renderWish() {
   for (const [k, arr] of groups) {
     if (!arr.length) continue;
     const title = ui.wg === 'cat' ? wcat(k)[1] : k, ac = ui.wg === 'area' ? areaCoord(k) : null;
-    h += '<section class="wgroup" data-wgroup="' + esc(k) + '"><h3>' + esc(title) + ' <span>' + arr.length + '곳</span>' + (ac ? '<button class="mini" data-wmap="' + esc(k) + '">지도</button>' : '') + '</h3><ul class="mlist">' +
+    const fk = ui.wg + ':' + k, folded = ui.wfold.has(fk), left = arr.filter(x => !x.done).length;
+    h += '<section class="wgroup' + (folded ? ' folded' : '') + '" data-wgroup="' + esc(k) + '"><h3><button class="wfold" data-wfold="' + esc(fk) + '" aria-expanded="' + !folded + '">' + esc(title) + ' <span>' + arr.length + '곳' + (left < arr.length ? ' · 남은 ' + left : '') + '</span></button>' + (ac ? '<button class="mini" data-wmap="' + esc(k) + '">지도</button>' : '') + '</h3>' + (folded ? '</section>' : '<ul class="mlist">' +
       arr.map(it => { const c = wcat(it.cat); return '<li class="' + (it.done ? 'done' : '') + '" style="--c:' + c[2] + '">' +
         '<input type="checkbox" id="wish-' + esc(it.id) + '" data-kind="wish" data-tog="' + esc(it.id) + '" ' + (it.done ? 'checked' : '') + (readOnly ? ' disabled' : '') + ' aria-label="다녀옴">' +
         '<span class="t">' + linkify(it.text) + (it.addr ? '<span class="waddr">' + esc(it.addr) + '</span>' : '') + '</span><span class="wtag">' + esc(ui.wg === 'cat' ? (it.area || '') : c[1]) + '</span>' +
-        (readOnly ? '' : '<button class="mini" data-wedit="' + esc(it.id) + '">수정</button>') + '</li>'; }).join('') + '</ul></section>';
+        (readOnly ? '' : '<button class="mini" data-wedit="' + esc(it.id) + '">수정</button>') + '</li>'; }).join('') + '</ul></section>');
   }
   box.innerHTML = h;
+  const keys = [...groups].filter(([, arr]) => arr.length).map(([k]) => ui.wg + ':' + k);
+  $('#wFoldAll').textContent = keys.length && keys.every(k => ui.wfold.has(k)) ? '모두 펼치기' : '모두 접기';
 }
+function saveFold() { lsSet('tp-wfold', JSON.stringify([...ui.wfold])); }
 function renderMemo(kind) {
   if (kind === 'wish') return renderWish();
   const all = memoArr(kind), ul = $(kind === 'check' ? '#checkList' : '#buyList');
@@ -1027,7 +1037,7 @@ $('#showAll').onchange = e => { ui.showAll = e.target.checked; renderMap(); };
 $('#showRoute').checked = ui.showRoute;
 $('#showRoute').onchange = e => { ui.showRoute = e.target.checked; lsSet('tp-route', ui.showRoute ? '1' : '0'); renderMap(); };
 function gotoArea(a) {
-  ui.tab = 'wish'; ui.wg = 'area'; ui.wcat = null; lsSet('tp-wg', 'area'); render();
+  ui.tab = 'wish'; ui.wg = 'area'; ui.wcat = null; lsSet('tp-wg', 'area'); ui.wfold.delete('area:' + a); saveFold(); render();
   const sec = document.querySelector('[data-wgroup="' + CSS.escape(a) + '"]'); if (sec) sec.scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 new ResizeObserver(() => { ui.viewKey = ''; renderMap(); }).observe($('#mapwrap'));
@@ -1100,6 +1110,11 @@ document.addEventListener('click', e => {
   const me = t.closest('[data-medit]'); if (me) { openMemo(me.dataset.kind, me.dataset.medit); return; }
   const bt = t.closest('[data-btag]'); if (bt) { ui.btag = bt.dataset.btag || null; if (ui.btag && !ui.newTags.includes(ui.btag)) ui.newTags = ui.newTags.concat(ui.btag); render(); return; }
   const nt = t.closest('[data-ntag]'); if (nt) { const k = nt.dataset.ntag; ui.newTags = ui.newTags.includes(k) ? ui.newTags.filter(x => x !== k) : ui.newTags.concat(k); render(); return; }
+  const wf = t.closest('[data-wfold]'); if (wf) { const k = wf.dataset.wfold; if (ui.wfold.has(k)) ui.wfold.delete(k); else ui.wfold.add(k); saveFold(); render(); return; }
+  if (t.closest('#wFoldAll')) {
+    const keys = [...document.querySelectorAll('[data-wfold]')].map(b => b.dataset.wfold), allFolded = keys.every(k => ui.wfold.has(k));
+    keys.forEach(k => allFolded ? ui.wfold.delete(k) : ui.wfold.add(k)); saveFold(); render(); return;
+  }
   const wg = t.closest('[data-wg]'); if (wg) { ui.wg = wg.dataset.wg; lsSet('tp-wg', ui.wg); render(); return; }
   const wc = t.closest('[data-wcat]'); if (wc) { ui.wcat = ui.wcat === wc.dataset.wcat ? null : wc.dataset.wcat; render(); return; }
   const wa = t.closest('[data-warea]'); if (wa) { gotoArea(wa.dataset.warea); return; }
