@@ -45,6 +45,8 @@ button{cursor:pointer}
 .app>.panel{grid-column:1;grid-row:1}.app>.mapwrap{grid-column:2;grid-row:1}
 .app.nomap{grid-template-columns:minmax(0,1fr)}
 .app.nomap .panel{border-right:0}
+#wishMapSlot .mapwrap{height:min(56vh,520px);min-height:300px;border:1px solid var(--line);border-radius:14px;margin:4px 0 14px}
+@media (max-width:860px){#wishMapSlot .mapwrap{height:42vh}}
 .app.nomap .panel-scroll{padding-left:max(16px,calc((100% - 1120px) / 2));padding-right:max(16px,calc((100% - 1120px) / 2))}
 [hidden]{display:none!important}
 .panel{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--surface);border-right:1px solid var(--line)}
@@ -394,6 +396,7 @@ textarea.field{resize:vertical;min-height:70px}
         <p class="sub">가고 싶은 가게를 지역과 종류로 모아 두세요. 지역을 역 이름으로 적으면 지도에 묶음으로 표시돼요.</p>
         <div class="wtools"><div class="seg" role="tablist" id="wGroup"><button data-wg="area" aria-selected="true">지역별</button><button data-wg="cat" aria-selected="false">종류별</button></div><button class="foldall" id="wFoldAll">모두 접기</button></div>
         <div class="cats" id="wCats"></div>
+        <div id="wishMapSlot"></div>
         <div id="wishList"></div>
         <form class="wform" id="wishForm">
           <input class="field" id="wishIn" placeholder="가게 이름 (예: 칼디)" maxlength="300">
@@ -592,7 +595,7 @@ function render() {
   renderMemo('check'); renderMemo('wish'); renderMemo('buy');
   const app = document.querySelector('.app'), showMap = ui.tab === 'wish';
   app.hidden = ui.page; $('#pageView').hidden = !ui.page;
-  app.classList.toggle('nomap', !showMap); $('#mapwrap').hidden = !showMap;
+  app.classList.add('nomap'); const mw = $('#mapwrap'); if (mw.parentNode.id !== 'wishMapSlot') $('#wishMapSlot').appendChild(mw); mw.hidden = !showMap;
   if (ui.page) renderPage(); else if (showMap) renderMap();
 }
 /* ---------- page view ---------- */
@@ -1166,7 +1169,9 @@ svg.addEventListener('pointerup', e => {
   }
 });
 svg.addEventListener('pointercancel', endPtr);
-svg.addEventListener('wheel', e => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+let mapActive = false;
+document.addEventListener('pointerdown', e => { mapActive = !!e.target.closest('#mapwrap'); }, true);
+svg.addEventListener('wheel', e => { if (!mapActive && !e.ctrlKey && !e.metaKey) return; e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
 $('#zin').onclick = () => zoomAt(1.5); $('#zout').onclick = () => zoomAt(1 / 1.5);
 $('#zfit').onclick = () => { fit(); renderMap(); };
 $('#showAll').onchange = e => { ui.showAll = e.target.checked; renderMap(); };
