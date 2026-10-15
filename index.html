@@ -494,7 +494,7 @@ function nameFromUrl(s) {
   try { return decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (e) { return ''; }
 }
 const isShortLink = s => /goo\.gl|maps\.app/.test(s || '');
-const shopUrl = it => it.link || (isFinite(it.lat) ? 'https://www.google.com/maps/search/' + encodeURIComponent(it.text) + '/@' + it.lat + ',' + it.lng + ',17z' : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(it.text + ' ' + (it.area || '')));
+const shopUrl = it => it.link || 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(it.text);
 const gSearch = p => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((p.name + ' ' + (p.addr || '')).trim());
 function gRoute(ps) {
   if (!ps.length) return '';
