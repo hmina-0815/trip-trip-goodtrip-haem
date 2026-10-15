@@ -452,7 +452,7 @@ function cleanPlace(p) {
 const WCATS = [['food', '식사', '#e2607a'], ['cafe', '카페', '#a0673a'], ['goods', '주방/잡화', '#2c9fcb'], ['merch', '굿즈', '#8b5cf6'], ['fashion', '패션/악세', '#d39a12'], ['place', '플레이스', '#3aa95a'], ['etc', '기타', '#8c90a3']];
 const wcat = k => WCATS.find(c => c[0] === k) || WCATS[WCATS.length - 1];
 // wishlist tags: who wants it and what kind it is; an item can carry several
-const TAGS = [['ham', '🐹 햄', '#f08a3c'], ['woong', '🐻 웅', '#9a6b48'], ['fashion', '패션', '#d39a12'], ['food', '식품', '#e2607a'], ['etc', '기타', '#8c90a3']];
+const TAGS = [['ham', '🐹 햄', '#f08a3c'], ['woong', '🐻 웅', '#9a6b48'], ['fashion', '패션', '#d39a12'], ['food', '식품', '#e2607a'], ['living', '잡화', '#2c9fcb'], ['etc', '기타', '#8c90a3']];
 const TAG_IDS = new Set(TAGS.map(t => t[0]));
 const tagInfo = k => TAGS.find(t => t[0] === k);
 const tagChips = tags => (tags && tags.length ? '<span class="tchips">' + tags.map(k => { const t = tagInfo(k); return t ? '<span class="tchip" style="--c:' + t[2] + '">' + t[1] + '</span>' : ''; }).join('') + '</span>' : '');
