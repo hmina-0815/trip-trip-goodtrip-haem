@@ -213,6 +213,11 @@ textarea.field{resize:vertical;min-height:70px}
 .mlist li.dragging{opacity:.35}
 .mghost{position:fixed;z-index:60;pointer-events:none;list-style:none;margin:0;padding:0;box-shadow:0 8px 24px rgba(0,0,0,.18);border-radius:10px;background:var(--surface)}
 .newtags{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:-4px 0 8px;font-size:12px;color:var(--muted)}
+.hrs{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:4px;white-space:nowrap}
+.hrs.off,.whrs .off{color:#d14343;font-weight:600}
+.whrs{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:2px}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:6px}
+.hgrid label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}
 .waddr{display:block;font-size:11.5px;color:var(--muted);white-space:normal;text-decoration:none}
 .wform{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .wform #wishIn{grid-column:1/-1}
@@ -519,6 +524,7 @@ const cleanItems = a => Array.isArray(a) ? a.filter(x => x && typeof x === 'obje
   if (Array.isArray(x.tags)) o.tags = x.tags.map(String).filter(t => TAG_IDS.has(t));
   if (isFinite(+x.lat) && isFinite(+x.lng) && x.lat !== '' && x.lat != null) { o.lat = +x.lat; o.lng = +x.lng; o.approx = !!x.approx; }
   if (x.addr) o.addr = String(x.addr).slice(0, 200);
+  if (x.hours && typeof x.hours === 'object') { const h = {}; for (let k = 0; k < 7; k++) if (x.hours[k]) h[k] = String(x.hours[k]).slice(0, 40); if (Object.keys(h).length) o.hours = h; }
   return o;
 }) : [];
 
@@ -579,6 +585,26 @@ function toast(msg, undo) {
 /* ---------- helpers ---------- */
 const curDay = () => state.days.find(d => d.id === ui.day) || state.days[0] || null;
 const dayIndex = d => state.days.indexOf(d);
+const WD = '일월화수목금토';
+function dayWd(i) { if (!state.meta.start) return null; const d = new Date(state.meta.start + 'T00:00:00'); if (isNaN(d)) return null; d.setDate(d.getDate() + i); return d.getDay(); }
+function tripWds() { const out = []; for (let i = 0; i < state.days.length; i++) { const w = dayWd(i); if (w != null && !out.some(o => o.w === w)) out.push({ w, label: dayDate(i) }); } return out.length ? out : [1, 2, 3, 4, 5, 6, 0].map(w => ({ w, label: WD[w] + '요일' })); }
+const isClosed = h => /휴무|closed|쉼/i.test(h || '');
+function hoursTag(it, w) { const h = it.hours && w != null ? it.hours[w] : ''; return h ? ' <span class="hrs' + (isClosed(h) ? ' off' : '') + '">' + esc(h) + '</span>' : ''; }
+function to24(ap, t) { let [hh, mm] = t.split(':').map(Number); if (ap && /오후|pm/i.test(ap) && hh < 12) hh += 12; if (ap && /오전|am/i.test(ap) && hh === 12) hh = 0; return String(hh).padStart(2, '0') + ':' + String(mm || 0).padStart(2, '0'); }
+function normHours(v) {
+  v = v.replace(/\s+/g, ' ').trim(); if (!v) return '';
+  if (/휴무|closed|휴일|정기/i.test(v)) return '휴무';
+  if (/24\s*시간|24 hours|open 24/i.test(v)) return '24시간';
+  const re = /(오전|오후|AM|PM)?\s*(\d{1,2}(?::\d{2})?)\s*(AM|PM)?/gi, parts = [];
+  v.split(/[,、]/).forEach(seg => { const m = [...seg.matchAll(re)].filter(x => x[2]); if (m.length >= 2) { const ap = x => x[1] || x[3] || '', t = (x, a) => to24(a, x[2].includes(':') ? x[2] : x[2] + ':00'); let a0 = ap(m[0]); const a1 = ap(m[1]); if (!a0 && a1 && t(m[0], a1) <= t(m[1], a1)) a0 = a1; parts.push(t(m[0], a0) + '–' + t(m[1], a1)); } });
+  return parts.length ? parts.join(', ') : v.slice(0, 40);
+}
+function parseHours(txt) {
+  const out = {}, lines = txt.split(/\n/).map(l => l.trim()).filter(Boolean), names = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6, sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+  const wdOf = l => { let m = l.match(/^([일월화수목금토])요일/); if (m) return [names[m[1]], l.slice(m[0].length)]; m = l.match(/^(sun|mon|tue|wed|thu|fri|sat)[a-z]*/i); if (m) return [names[m[1].toLowerCase()], l.slice(m[0].length)]; return null; };
+  for (let i = 0; i < lines.length; i++) { const f = wdOf(lines[i]); if (!f) continue; let rest = f[1].replace(/^[\s:：\t]+/, ''); if (!rest && lines[i + 1] && !wdOf(lines[i + 1])) rest = lines[++i]; const h = normHours(rest); if (h) out[f[0]] = h; }
+  return out;
+}
 function dayDate(i, long) {
   if (!state.meta.start) return '';
   const d = new Date(state.meta.start + 'T00:00:00'); if (isNaN(d)) return '';
@@ -621,7 +647,7 @@ function renderPage() {
     if (!zs.length) { h += '<div class="pvempty">아직 구역이 없어요</div></section>'; return; }
     h += '<div class="pvzones">' + zs.map(z => { const shops = zoneShops(z.name);
       return '<div class="pvzone" style="--zc:' + zoneColor(z.name) + '"><h3>' + esc(z.name) + (shops.length ? ' <span>' + shops.length + '곳</span>' : '') + '</h3>' +
-        (shops.length ? '<ul>' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '">' + wcat(it.cat)[3] + ' ' + esc(it.text) + '</li>').join('') + '</ul>' : '') + '</div>'; }).join('') + '</div></section>';
+        (shops.length ? '<ul>' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '">' + wcat(it.cat)[3] + ' ' + esc(it.text) + hoursTag(it, dayWd(i)) + '</li>').join('') + '</ul>' : '') + '</div>'; }).join('') + '</div></section>';
   });
   const items = (kind, arr, extra) => '<ul class="pvitems">' + arr.map(it => '<li class="' + (it.done ? 'done' : '') + '"' + (extra ? ' style="--c:' + wcat(it.cat)[2] + '"' : '') + '>' +
     '<input type="checkbox" data-pvtog="' + kind + '" data-id="' + esc(it.id) + '"' + (it.done ? ' checked' : '') + (readOnly ? ' disabled' : '') + ' aria-label="완료">' +
@@ -703,7 +729,7 @@ function renderPlan() {
         '<div class="zrow">' + (readOnly ? '' : '<span class="zgrip" data-zgrip aria-label="끌어서 옮기기">⠿</span>') +
         '<button class="zname" data-ztoggle="' + esc(z.id) + '">' + esc(z.name) + (shops.length ? ' <small>' + shops.length + '곳 ' + (open ? '▴' : '▾') + '</small>' : '') + '</button>' +
         (readOnly ? '' : '<button class="zdel" data-zdel="' + esc(z.id) + '" aria-label="' + esc(z.name) + ' 빼기">×</button>') + '</div>' +
-        (open && shops.length ? '<ul class="zshops">' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '">' + wcat(it.cat)[3] + ' ' + esc(it.text) + '</li>').join('') + '</ul>' : '') + '</div>';
+        (open && shops.length ? '<ul class="zshops">' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '">' + wcat(it.cat)[3] + ' ' + esc(it.text) + hoursTag(it, dayWd(i)) + '</li>').join('') + '</ul>' : '') + '</div>';
     });
     h += '</div>' + (readOnly ? '' : '<select class="zsel" data-zadd="' + esc(d.id) + '" aria-label="day ' + (i + 1) + '에 구역 추가"><option value="">+ 구역 추가</option>' +
       names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('') + '<option value="__new">직접 입력…</option></select>') + '</section>';
@@ -824,12 +850,17 @@ function renderWish() {
     h += '<section class="wgroup' + (folded ? ' folded' : '') + '" data-wgroup="' + esc(k) + '"><h3><button class="wfold" data-wfold="' + esc(fk) + '" aria-expanded="' + !folded + '">' + esc(title) + ' <span>' + arr.length + '곳' + (left < arr.length ? ' · 남은 ' + left : '') + '</span></button>' + (ac ? '<button class="mini" data-wmap="' + esc(k) + '">지도</button>' : '') + '</h3>' + (folded ? '</section>' : '<ul class="mlist">' +
       arr.map(it => { const c = wcat(it.cat); return '<li class="' + (it.done ? 'done' : '') + (ui.wsel === it.id ? ' wsel' : '') + '" data-wrow="' + esc(it.id) + '" style="--c:' + c[2] + '">' +
         '<input type="checkbox" id="wish-' + esc(it.id) + '" data-kind="wish" data-tog="' + esc(it.id) + '" ' + (it.done ? 'checked' : '') + (readOnly ? ' disabled' : '') + ' aria-label="다녀옴">' +
-        '<span class="t" data-wpin="' + esc(it.id) + '"><span class="wemo">' + c[3] + '</span>' + linkify(it.text) + (it.addr ? '<span class="waddr">' + esc(it.addr) + '</span>' : '') + '</span><span class="wtag">' + esc(ui.wg === 'cat' ? (it.area || '') : c[1]) + '</span>' +
+        '<span class="t" data-wpin="' + esc(it.id) + '"><span class="wemo">' + c[3] + '</span>' + linkify(it.text) + (ui.wsel === it.id ? wishDetail(it) : '') + '</span><span class="wtag">' + esc(ui.wg === 'cat' ? (it.area || '') : c[1]) + '</span>' +
         (readOnly ? '' : '<button class="mini" data-wedit="' + esc(it.id) + '">수정</button>') + '</li>'; }).join('') + '</ul></section>');
   }
   box.innerHTML = h;
   const keys = [...groups].filter(([, arr]) => arr.length).map(([k]) => ui.wg + ':' + k);
   $('#wFoldAll').textContent = keys.length && keys.every(k => ui.wfold.has(k)) ? '모두 펼치기' : '모두 접기';
+}
+function wishDetail(it) {
+  const hs = it.hours ? tripWds().filter(o => it.hours[o.w]).map(o => '<span' + (isClosed(it.hours[o.w]) ? ' class="off"' : '') + '>' + esc(o.label) + ' ' + esc(it.hours[o.w]) + '</span>').join('') : '';
+  const body = (it.addr ? '<span class="waddr">' + esc(it.addr) + '</span>' : '') + (hs ? '<span class="whrs">' + hs + '</span>' : '');
+  return body || '<span class="waddr">주소·영업시간이 아직 없어요' + (readOnly ? '' : ' (수정에서 넣을 수 있어요)') + '</span>';
 }
 function saveFold() { lsSet('tp-wfold', JSON.stringify([...ui.wfold])); }
 function renderMemo(kind) {
@@ -1259,7 +1290,7 @@ document.addEventListener('click', e => {
   const me = t.closest('[data-medit]'); if (me) { openMemo(me.dataset.kind, me.dataset.medit); return; }
   const bt = t.closest('[data-btag]'); if (bt) { ui.btag = bt.dataset.btag || null; if (ui.btag && !ui.newTags.includes(ui.btag)) ui.newTags = ui.newTags.concat(ui.btag); render(); return; }
   const nt = t.closest('[data-ntag]'); if (nt) { const k = nt.dataset.ntag; ui.newTags = ui.newTags.includes(k) ? ui.newTags.filter(x => x !== k) : ui.newTags.concat(k); render(); return; }
-  const wp = t.closest('[data-wpin]'); if (wp && !t.closest('a')) { const it = state.wish.find(x => x.id === wp.dataset.wpin); if (it && isFinite(it.lat) && ui.view) { ui.wsel = it.id; ui.view.cx = mx(it.lng); ui.view.cy = my(it.lat); const z = R * Math.cos(it.lat * Math.PI / 180) / 9; if (ui.view.s < z) ui.view.s = z; render(); $('#mapwrap').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } return; }
+  const wp = t.closest('[data-wpin]'); if (wp && !t.closest('a')) { const it = state.wish.find(x => x.id === wp.dataset.wpin); if (it && ui.wsel === it.id) { ui.wsel = null; render(); return; } if (it && !(isFinite(it.lat) && ui.view)) { ui.wsel = it.id; render(); return; } if (it && isFinite(it.lat) && ui.view) { ui.wsel = it.id; ui.view.cx = mx(it.lng); ui.view.cy = my(it.lat); const z = R * Math.cos(it.lat * Math.PI / 180) / 9; if (ui.view.s < z) ui.view.s = z; render(); $('#mapwrap').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } return; }
   const wf = t.closest('[data-wfold]'); if (wf) { const k = wf.dataset.wfold; if (ui.wfold.has(k)) ui.wfold.delete(k); else ui.wfold.add(k); saveFold(); render(); return; }
   if (t.closest('#wFoldAll')) {
     const keys = [...document.querySelectorAll('[data-wfold]')].map(b => b.dataset.wfold), allFolded = keys.every(k => ui.wfold.has(k));
@@ -1326,13 +1357,18 @@ function openWish(id) {
     '<div class="row"><label class="l" for="weCat">종류</label><select class="field" id="weCat">' + WCATS.map(c => '<option value="' + c[0] + '"' + (wcat(it.cat)[0] === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select></div>' +
     '<div class="row"><label class="l" for="weLoc">위치</label><input class="field" id="weLoc" placeholder="Google 지도 링크나 좌표 붙여넣기"><span class="hint">' + (isFinite(it.lat) ? '지금 위치 ' + it.lat.toFixed(5) + ', ' + it.lng.toFixed(5) + (it.approx ? ' (대략적인 위치)' : '') + '. 바꿀 때만 넣으세요.' : '아직 위치가 없어요.') + ' 일정에 있는 같은 가게에도 같이 반영돼요.</span><span class="err" id="weErr"></span></div>' +
     '<div class="row"><label class="l" for="weAddr">주소</label><input class="field" id="weAddr" maxlength="200" value="' + esc(it.addr || '') + '" placeholder="위치를 붙여 넣으면 자동으로 채워져요"></div>' +
+    '<div class="row"><span class="l">영업시간</span><div class="hgrid">' + tripWds().map(o => '<label><span>' + esc(o.label) + '</span><input class="field" data-hw="' + o.w + '" maxlength="40" value="' + esc((it.hours || {})[o.w] || '') + '" placeholder="11:00–20:00"></label>').join('') + '</div>' +
+      '<textarea class="field" id="weHrsPaste" rows="2" placeholder="Google 지도 영업시간을 통째로 붙여 넣으면 요일별로 채워져요"></textarea><span class="hint">여행 날짜의 요일만 적으면 돼요. 쉬는 날은 휴무라고 적으세요.</span></div>' +
     '<div class="btns"><button class="btn danger" id="weDel" style="margin-right:auto">삭제</button><button class="btn primary" id="weSave">저장</button></div>', close => {
       autoAddr('#weLoc', '#weAddr', '#weErr');
+      $('#weHrsPaste').addEventListener('input', e => { const h = parseHours(e.target.value); document.querySelectorAll('[data-hw]').forEach(inp => { if (h[inp.dataset.hw]) inp.value = h[inp.dataset.hw]; }); });
       $('#weSave').onclick = () => {
         const loc = $('#weLoc').value.trim(); let moved = false;
         if (loc) { const c = parseCoords(loc); if (!c) { $('#weErr').textContent = isShortLink(loc) ? '짧은 링크(maps.app.goo.gl)는 읽을 수 없어요. 브라우저에서 연 뒤 주소창의 긴 주소를 붙여 넣어 주세요.' : '위치를 찾지 못했어요. 예: 35.70120, 139.78680'; return; } it.lat = c.lat; it.lng = c.lng; it.approx = false; moved = true; }
         const oldName = it.text;
         it.text = $('#weText').value.trim() || it.text; it.area = $('#weArea').value.trim(); it.cat = $('#weCat').value; it.addr = $('#weAddr').value.trim();
+        const hrs = Object.assign({}, it.hours || {}); document.querySelectorAll('[data-hw]').forEach(inp => { const v = normHours(inp.value); if (v) hrs[inp.dataset.hw] = v; else delete hrs[inp.dataset.hw]; });
+        if (Object.keys(hrs).length) it.hours = hrs; else delete it.hours;
         if (oldName !== it.text) shopPlaces(Object.assign({}, it, { text: oldName })).forEach(([d, p]) => { if (p.name === oldName) { p.name = it.text; saveDay(d); } });
         syncShop(it, it, moved); close(); render();
       };
