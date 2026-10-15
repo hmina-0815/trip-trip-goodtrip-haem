@@ -1178,6 +1178,7 @@ function openPlace(pid) {
     (readOnly ? '' : '<div class="row"><label class="l" for="pDay">day 옮기기</label><select class="field" id="pDay">' + dayOptions(f.d.id) + '</select></div>') +
     '<div class="btns">' + (readOnly ? '<button class="btn" data-close>닫기</button>' : '<button class="btn danger" id="pDel" style="margin-right:auto">일정에서 빼기</button><button class="btn" data-close>취소</button><button class="btn primary" id="pSave">저장</button>') + '</div>', close => {
       if (readOnly) return;
+      autoAddr('#pLoc', '#pAddr', '#pErr');
       $('#pDel').onclick = () => { close(); removePlace(pid); };
       $('#pSave').onclick = () => {
         const loc = $('#pLoc').value.trim();
@@ -1194,6 +1195,28 @@ function openPlace(pid) {
         close(); render();
       };
     });
+}
+
+// standalone web build only: look up a readable address for coordinates (OpenStreetMap)
+const GEO = typeof WEB !== 'undefined' && WEB;
+async function revAddr(c) {
+  try {
+    const r = await (await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=ko,ja&lat=' + c.lat + '&lon=' + c.lng)).json();
+    const parts = String(r && r.display_name || '').split(',').map(x => x.trim()).filter(x => x && x !== '일본' && x !== '日本' && !/^\d{3}-?\d{4}$/.test(x));
+    return parts.reverse().join(' ');
+  } catch (e) { return ''; }
+}
+function autoAddr(locSel, addrSel, hintSel) {
+  if (!GEO || !$(locSel)) return;
+  let t = 0, last = '';
+  $(locSel).addEventListener('input', () => { clearTimeout(t); t = setTimeout(async () => {
+    const c = parseCoords($(locSel).value); if (!c) return;
+    const k = c.lat + ',' + c.lng; if (k === last) return; last = k;
+    if (hintSel && $(hintSel)) $(hintSel).textContent = '주소 찾는 중…';
+    const a = await revAddr(c);
+    if (a && $(addrSel)) $(addrSel).value = a;
+    if (hintSel && $(hintSel)) $(hintSel).textContent = '';
+  }, 350); });
 }
 
 let searchCtl = null;
@@ -1219,6 +1242,7 @@ function openSearch(prefill) {
         document.querySelectorAll('#sTabs button').forEach(x => x.setAttribute('aria-selected', x === b));
         $('#stShop').hidden = b.dataset.st !== 'shop'; $('#stAi').hidden = b.dataset.st !== 'ai'; $('#stManual').hidden = b.dataset.st !== 'manual'; };
       $('#mLoc').addEventListener('input', () => { const n = nameFromUrl($('#mLoc').value); if (n && !$('#mName').value.trim()) $('#mName').value = n; });
+      autoAddr('#mLoc', '#mAddr', '#mErr');
       const addTo = p => {
         const d = state.days.find(x => x.id === $('#aDay').value) || day;
         d.places.push(p); saveDay(d); ui.day = d.id; ui.sel = p.id; render();
