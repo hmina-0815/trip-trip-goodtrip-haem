@@ -347,6 +347,7 @@ textarea.field{resize:vertical;min-height:70px}
     <div class="maptop">
       <label hidden><input type="checkbox" id="showAll"></label>
       <label hidden><input type="checkbox" id="showRoute"></label>
+      <a id="shopLink" href="#" target="_blank" rel="noopener" hidden></a>
       <a id="gmapRoute" href="#" target="_blank" rel="noopener" hidden>Google 지도로 경로 열기 ↗</a>
     </div>
     <div class="mapctl">
@@ -493,6 +494,7 @@ function nameFromUrl(s) {
   try { return decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (e) { return ''; }
 }
 const isShortLink = s => /goo\.gl|maps\.app/.test(s || '');
+const shopUrl = it => it.link || (isFinite(it.lat) ? 'https://www.google.com/maps/search/' + encodeURIComponent(it.text) + '/@' + it.lat + ',' + it.lng + ',17z' : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(it.text + ' ' + (it.area || '')));
 const gSearch = p => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((p.name + ' ' + (p.addr || '')).trim());
 function gRoute(ps) {
   if (!ps.length) return '';
@@ -524,6 +526,7 @@ const cleanItems = a => Array.isArray(a) ? a.filter(x => x && typeof x === 'obje
   if (Array.isArray(x.tags)) o.tags = x.tags.map(String).filter(t => TAG_IDS.has(t));
   if (isFinite(+x.lat) && isFinite(+x.lng) && x.lat !== '' && x.lat != null) { o.lat = +x.lat; o.lng = +x.lng; o.approx = !!x.approx; }
   if (x.addr) o.addr = String(x.addr).slice(0, 200);
+  if (typeof x.link === 'string' && /^https:\/\//.test(x.link)) o.link = x.link.slice(0, 600);
   if (x.hours && typeof x.hours === 'object') { const h = {}; for (let k = 0; k < 7; k++) if (x.hours[k]) h[k] = String(x.hours[k]).slice(0, 40); if (Object.keys(h).length) o.hours = h; }
   return o;
 }) : [];
@@ -1052,6 +1055,7 @@ function renderMap() {
   if (key !== ui.viewKey || !ui.view) { ui.viewKey = key; fit(); }
   $('#mapempty').hidden = ps.length > 0;
   $('#gmapRoute').hidden = true;
+  { const sl = $('#shopLink'), it = ui.wsel && state.wish.find(x => x.id === ui.wsel); sl.hidden = !it; if (it) { sl.href = shopUrl(it); sl.textContent = it.text.slice(0, 28) + ' · Google 지도 ↗'; } }
   const used = new Set(state.wish.filter(it => isFinite(it.lat)).map(it => wcat(it.cat)[0]));
   $('#legend').innerHTML = WCATS.filter(c => used.has(c[0])).map(c => '<span style="--c:' + c[2] + '">' + c[3] + ' ' + c[1] + '</span>').join('');
   const hasBase = drawBase(ui.view, w, h);
@@ -1190,7 +1194,7 @@ svg.addEventListener('pointerup', e => {
   const hit = document.elementFromPoint(e.clientX, e.clientY), ga = hit?.closest('[data-area]');
   if (ga) { gotoArea(ga.dataset.area); return; }
   const gs = hit?.closest('[data-shop]');
-  if (gs) { focusShop(gs.dataset.shop); return; }
+  if (gs) { const it = state.wish.find(x => x.id === gs.dataset.shop); if (it) { window.open(shopUrl(it), '_blank', 'noopener'); ui.wsel = it.id; renderMap(); } return; }
   const g = hit?.closest('[data-pin]');
   if (g) {
     if (g.dataset.pday !== ui.day) { ui.day = g.dataset.pday; lsSet('tp-day', ui.day); }
@@ -1356,17 +1360,20 @@ function openWish(id) {
     '<div class="row"><label class="l" for="weArea">지역</label><input class="field" id="weArea" list="areaList" maxlength="40" value="' + esc(it.area || '') + '"><span class="hint">역 이름(예: 우에노, 긴자)으로 적으면 지도에 묶음으로 표시돼요.</span></div>' +
     '<div class="row"><label class="l" for="weCat">종류</label><select class="field" id="weCat">' + WCATS.map(c => '<option value="' + c[0] + '"' + (wcat(it.cat)[0] === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select></div>' +
     '<div class="row"><label class="l" for="weLoc">위치</label><input class="field" id="weLoc" placeholder="Google 지도 링크나 좌표 붙여넣기"><span class="hint">' + (isFinite(it.lat) ? '지금 위치 ' + it.lat.toFixed(5) + ', ' + it.lng.toFixed(5) + (it.approx ? ' (대략적인 위치)' : '') + '. 바꿀 때만 넣으세요.' : '아직 위치가 없어요.') + ' 일정에 있는 같은 가게에도 같이 반영돼요.</span><span class="err" id="weErr"></span></div>' +
+    '<div class="row"><label class="l" for="weLink">Google 지도 링크</label><input class="field" id="weLink" maxlength="600" value="' + esc(it.link || '') + '" placeholder="https://maps.app.goo.gl/… (짧은 링크도 돼요)"><span class="hint">지도에서 이 가게 핀을 누르면 이 링크가 열려요. 위치 칸에 링크를 붙여 넣으면 여기도 같이 채워져요.</span></div>' +
     '<div class="row"><label class="l" for="weAddr">주소</label><input class="field" id="weAddr" maxlength="200" value="' + esc(it.addr || '') + '" placeholder="위치를 붙여 넣으면 자동으로 채워져요"></div>' +
     '<div class="row"><span class="l">영업시간</span><div class="hgrid">' + tripWds().map(o => '<label><span>' + esc(o.label) + '</span><input class="field" data-hw="' + o.w + '" maxlength="40" value="' + esc((it.hours || {})[o.w] || '') + '" placeholder="11:00–20:00"></label>').join('') + '</div>' +
       '<textarea class="field" id="weHrsPaste" rows="2" placeholder="Google 지도 영업시간을 통째로 붙여 넣으면 요일별로 채워져요"></textarea><span class="hint">여행 날짜의 요일만 적으면 돼요. 쉬는 날은 휴무라고 적으세요.</span></div>' +
     '<div class="btns"><button class="btn danger" id="weDel" style="margin-right:auto">삭제</button><button class="btn primary" id="weSave">저장</button></div>', close => {
       autoAddr('#weLoc', '#weAddr', '#weErr');
+      $('#weLoc').addEventListener('input', e => { const v = e.target.value.trim(); if (/^https:\/\/\S+$/.test(v)) $('#weLink').value = v; });
       $('#weHrsPaste').addEventListener('input', e => { const h = parseHours(e.target.value); document.querySelectorAll('[data-hw]').forEach(inp => { if (h[inp.dataset.hw]) inp.value = h[inp.dataset.hw]; }); });
       $('#weSave').onclick = () => {
         const loc = $('#weLoc').value.trim(); let moved = false;
-        if (loc) { const c = parseCoords(loc); if (!c) { $('#weErr').textContent = isShortLink(loc) ? '짧은 링크(maps.app.goo.gl)는 읽을 수 없어요. 브라우저에서 연 뒤 주소창의 긴 주소를 붙여 넣어 주세요.' : '위치를 찾지 못했어요. 예: 35.70120, 139.78680'; return; } it.lat = c.lat; it.lng = c.lng; it.approx = false; moved = true; }
+        if (loc && !(isShortLink(loc) && !parseCoords(loc) && isFinite(it.lat))) { const c = parseCoords(loc); if (!c) { $('#weErr').textContent = isShortLink(loc) ? '짧은 링크(maps.app.goo.gl)는 읽을 수 없어요. 브라우저에서 연 뒤 주소창의 긴 주소를 붙여 넣어 주세요.' : '위치를 찾지 못했어요. 예: 35.70120, 139.78680'; return; } it.lat = c.lat; it.lng = c.lng; it.approx = false; moved = true; }
         const oldName = it.text;
         it.text = $('#weText').value.trim() || it.text; it.area = $('#weArea').value.trim(); it.cat = $('#weCat').value; it.addr = $('#weAddr').value.trim();
+        { const lk = $('#weLink').value.trim(); if (/^https:\/\/\S+$/.test(lk)) it.link = lk.slice(0, 600); else delete it.link; }
         const hrs = Object.assign({}, it.hours || {}); document.querySelectorAll('[data-hw]').forEach(inp => { const v = normHours(inp.value); if (v) hrs[inp.dataset.hw] = v; else delete hrs[inp.dataset.hw]; });
         if (Object.keys(hrs).length) it.hours = hrs; else delete it.hours;
         if (oldName !== it.text) shopPlaces(Object.assign({}, it, { text: oldName })).forEach(([d, p]) => { if (p.name === oldName) { p.name = it.text; saveDay(d); } });
@@ -1523,7 +1530,7 @@ function autoAddr(locSel, addrSel, hintSel) {
   if (!GEO || !$(locSel)) return;
   let t = 0, last = '';
   $(locSel).addEventListener('input', () => { clearTimeout(t); t = setTimeout(async () => {
-    const c = parseCoords($(locSel).value); if (!c) return;
+    if (!$(locSel)) return; const c = parseCoords($(locSel).value); if (!c) return;
     const k = c.lat + ',' + c.lng; if (k === last) return; last = k;
     if (hintSel && $(hintSel)) $(hintSel).textContent = '주소 찾는 중…';
     const a = await revAddr(c);
