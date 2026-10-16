@@ -259,6 +259,12 @@ textarea.field{resize:vertical;min-height:70px}
 .zdel{border:0;background:none;color:var(--muted);font-size:17px;line-height:1;padding:2px 6px}
 .zdel:hover{color:var(--danger)}
 .zshops{list-style:none;margin:0;padding:0 10px 8px 26px;font-size:12.5px;display:flex;flex-direction:column;gap:3px}
+.zshops li{display:flex;align-items:center;gap:4px;border-radius:6px}
+.zst{flex:1;min-width:0}
+.zsgrip{cursor:grab;touch-action:none;user-select:none;color:var(--muted);padding:2px 4px;margin-left:-4px;font-size:13px}
+.zshops li.mdrop-before{box-shadow:0 -2px 0 var(--accent)}
+.zshops li.mdrop-after{box-shadow:0 2px 0 var(--accent)}
+.zshops li.dragging{opacity:.35}
 .zshops li.done{color:var(--muted);text-decoration:line-through}
 .zsel{width:100%;border:1px dashed var(--line);border-radius:8px;background:var(--surface);color:var(--muted);padding:7px 8px;font-size:13px}
 .zaddday{min-height:56px;align-items:center;justify-content:center;color:var(--accent);font-weight:600;border-style:dashed;border-top-width:1px;cursor:pointer;font-size:14px}
@@ -732,7 +738,7 @@ function renderPlan() {
         '<div class="zrow">' + (readOnly ? '' : '<span class="zgrip" data-zgrip aria-label="끌어서 옮기기">⠿</span>') +
         '<button class="zname" data-ztoggle="' + esc(z.id) + '">' + esc(z.name) + (shops.length ? ' <small>' + shops.length + '곳 ' + (open ? '▴' : '▾') + '</small>' : '') + '</button>' +
         (readOnly ? '' : '<button class="zdel" data-zdel="' + esc(z.id) + '" aria-label="' + esc(z.name) + ' 빼기">×</button>') + '</div>' +
-        (open && shops.length ? '<ul class="zshops">' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '">' + wcat(it.cat)[3] + ' ' + esc(it.text) + hoursTag(it, dayWd(i)) + '</li>').join('') + '</ul>' : '') + '</div>';
+        (open && shops.length ? '<ul class="zshops">' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '" data-mid="' + esc(it.id) + '" data-mkind="zshop">' + (readOnly || shops.length < 2 ? '' : '<span class="zsgrip" data-mgrip aria-label="끌어서 순서 바꾸기">⠿</span>') + '<span class="zst">' + wcat(it.cat)[3] + ' ' + esc(it.text) + hoursTag(it, dayWd(i)) + '</span></li>').join('') + '</ul>' : '') + '</div>';
     });
     h += '</div>' + (readOnly ? '' : '<select class="zsel" data-zadd="' + esc(d.id) + '" aria-label="day ' + (i + 1) + '에 구역 추가"><option value="">+ 구역 추가</option>' +
       names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('') + '<option value="__new">직접 입력…</option></select>') + '</section>';
@@ -927,6 +933,12 @@ const endMdrag = () => {
   const d = mdrag; mdrag = null; d.ghost.remove(); d.li.classList.remove('dragging');
   document.querySelectorAll('.mdrop-before,.mdrop-after').forEach(n => n.classList.remove('mdrop-before', 'mdrop-after'));
   if (!d.target) return;
+  if (d.kind === 'zshop') {
+    const arr = state.wish, from = arr.findIndex(x => x.id === d.id); if (from < 0) return;
+    const [it] = arr.splice(from, 1), to = arr.findIndex(x => x.id === d.target.id);
+    if (to < 0) { arr.splice(from, 0, it); return; }
+    arr.splice(to + (d.target.after ? 1 : 0), 0, it); saveWish(); render(); return;
+  }
   const arr = memoArr(d.kind), from = arr.findIndex(x => x.id === d.id); if (from < 0) return;
   const [it] = arr.splice(from, 1);
   let to = arr.findIndex(x => x.id === d.target.id); if (to < 0) { arr.splice(from, 0, it); return; }
