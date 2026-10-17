@@ -222,6 +222,8 @@ textarea.field{resize:vertical;min-height:70px}
 .wform{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .wform #wishIn{grid-column:1/-1}
 .wform .btn{grid-column:1/-1}
+.wform #wishArea{grid-column:1/-1}
+.addform,.wform{margin-bottom:12px}
 .near{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-6px 0 14px;font-size:12.5px;color:var(--muted)}
 .near button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:2px 9px;font-size:12px}
 .near button:hover{border-color:var(--accent);color:var(--accent)}
@@ -390,33 +392,33 @@ textarea.field{resize:vertical;min-height:70px}
       <div id="buyPanel" class="memo" hidden>
         <h2>위시리스트</h2>
         <p class="sub">사고 싶은 물건. 누구 것인지, 어떤 종류인지 태그로 나눠 두세요. 산 것은 체크하고, ⠿를 끌어서 순서를 바꿔요.</p>
+        <form class="addform" id="buyForm"><input class="field" id="buyIn" placeholder="예: 하치와레 키링, 칼디 커피" maxlength="300"><button class="btn primary">추가</button></form>
+        <div class="newtags" id="buyNew"></div>
         <div class="cats" id="buyTags"></div>
         <ul class="mlist" id="buyList"></ul>
-        <div class="newtags" id="buyNew"></div>
-        <form class="addform" id="buyForm"><input class="field" id="buyIn" placeholder="예: 하치와레 키링, 칼디 커피" maxlength="300"><button class="btn primary">추가</button></form>
       </div>
 
       <div id="checkPanel" class="memo" hidden>
         <h2>체크리스트</h2>
         <p class="sub">챙길 짐, 예약, 출발 전 할 일. ⠿를 끌어서 순서를 바꿔요.</p>
-        <ul class="mlist" id="checkList"></ul>
         <form class="addform" id="checkForm"><input class="field" id="checkIn" placeholder="예: 여권, 숙소 예약 확인" maxlength="300"><button class="btn primary">추가</button></form>
+        <ul class="mlist" id="checkList"></ul>
       </div>
 
       <div id="wishPanel" class="memo" hidden>
         <h2>샵리스트</h2>
         <p class="sub">가고 싶은 가게를 지역과 종류로 모아 두세요. 지역을 역 이름으로 적으면 지도에 묶음으로 표시돼요.</p>
+        <form class="wform" id="wishForm">
+          <input class="field" id="wishIn" placeholder="가게 이름 (예: 칼디)" maxlength="300">
+          <select class="field" id="wishAreaSel" aria-label="지역"></select>
+          <select class="field" id="wishCat" aria-label="종류"></select>
+          <input class="field" id="wishArea" placeholder="새 지역 이름 (예: 우에노)" maxlength="40" hidden>
+          <button class="btn primary">샵리스트에 추가</button>
+        </form>
         <div class="wtools"><div class="seg" role="tablist" id="wGroup"><button data-wg="area" aria-selected="true">지역별</button><button data-wg="cat" aria-selected="false">종류별</button></div><button class="foldall" id="wFoldAll">모두 접기</button></div>
         <div class="cats" id="wCats"></div>
         <div id="wishMapSlot"></div>
         <div id="wishList"></div>
-        <form class="wform" id="wishForm">
-          <input class="field" id="wishIn" placeholder="가게 이름 (예: 칼디)" maxlength="300">
-          <input class="field" id="wishArea" list="areaList" placeholder="지역 (예: 우에노)" maxlength="40">
-          <select class="field" id="wishCat"></select>
-          <button class="btn primary">샵리스트에 추가</button>
-        </form>
-        <datalist id="areaList"></datalist>
       </div>
     </div>
   </aside>
@@ -835,6 +837,12 @@ function areaCoord(name) {
   for (const st of BASE.st) if (st.n === n && (!best || st.k > best.k)) best = st;
   return best ? { lat: unY(best.y), lng: best.x * 180 / Math.PI } : null;
 }
+function areaOpts(cur) {
+  const names = [...wishAreas().keys()].filter(a => a !== '지역 미정'); if (cur && !names.includes(cur)) names.push(cur);
+  return '<option value="">지역 미정</option>' + names.map(a => '<option value="' + esc(a) + '"' + (a === cur ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '<option value="__new">+ 새 지역 직접 입력…</option>';
+}
+function bindArea(selSel, inpSel) { const sel = $(selSel), inp = $(inpSel); sel.onchange = () => { inp.hidden = sel.value !== '__new'; if (!inp.hidden) inp.focus(); }; }
+const areaVal = (selSel, inpSel) => $(selSel).value === '__new' ? $(inpSel).value.trim() : $(selSel).value;
 function wishAreas() {
   const m = new Map();
   state.wish.forEach(it => { const a = (it.area || '').trim() || '지역 미정'; if (!m.has(a)) m.set(a, []); m.get(a).push(it); });
@@ -845,9 +853,9 @@ function renderWish() {
   const counts = {}; state.wish.forEach(it => { const k = wcat(it.cat)[0]; counts[k] = (counts[k] || 0) + 1; });
   $('#wCats').innerHTML = WCATS.filter(c => counts[c[0]]).map(c => '<button class="cat" data-wcat="' + c[0] + '" aria-pressed="' + (ui.wcat === c[0]) + '" style="--c:' + c[2] + '">' + c[3] + ' ' + c[1] + ' <b>' + counts[c[0]] + '</b></button>').join('');
   const sel = $('#wishCat'); if (!sel.options.length) sel.innerHTML = WCATS.map(c => '<option value="' + c[0] + '">' + c[1] + '</option>').join('');
-  $('#areaList').innerHTML = [...wishAreas().keys()].filter(a => a !== '지역 미정').map(a => '<option value="' + esc(a) + '">').join('');
+  { const as = $('#wishAreaSel'), cur = as.value; if (cur !== '__new') { as.innerHTML = areaOpts(cur); as.value = cur; } }
   const box = $('#wishList'), items = state.wish.filter(it => !ui.wcat || wcat(it.cat)[0] === ui.wcat);
-  if (!items.length) { box.innerHTML = '<div class="empty" style="margin-bottom:12px">' + (state.wish.length ? '이 종류의 가게가 없어요' : '가고 싶은 가게를 아래에 적어 두세요') + '</div>'; return; }
+  if (!items.length) { box.innerHTML = '<div class="empty" style="margin-bottom:12px">' + (state.wish.length ? '이 종류의 가게가 없어요' : '가고 싶은 가게를 위에 적어 두세요') + '</div>'; return; }
   const groups = new Map();
   if (ui.wg === 'cat') WCATS.forEach(c => groups.set(c[0], []));
   items.forEach(it => { const k = ui.wg === 'cat' ? wcat(it.cat)[0] : ((it.area || '').trim() || '지역 미정'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(it); });
@@ -1069,7 +1077,7 @@ function renderMap() {
   $('#gmapRoute').hidden = true;
   { const sl = $('#shopLink'), it = ui.wsel && state.wish.find(x => x.id === ui.wsel); sl.hidden = !it; if (it) { sl.href = shopUrl(it); sl.textContent = it.text.slice(0, 28) + ' · Google 지도 ↗'; } }
   const used = new Set(state.wish.filter(it => isFinite(it.lat)).map(it => wcat(it.cat)[0]));
-  $('#legend').innerHTML = WCATS.filter(c => used.has(c[0])).map(c => '<span style="--c:' + c[2] + '">' + c[3] + ' ' + c[1] + '</span>').join('');
+  $('#legend').hidden = true; if (0) $('#legend').innerHTML = WCATS.filter(c => used.has(c[0])).map(c => '<span style="--c:' + c[2] + '">' + c[3] + ' ' + c[1] + '</span>').join('');
   const hasBase = drawBase(ui.view, w, h);
   if (!ui.view) { svg.innerHTML = gridSvg(w, h, null, false); return; }
   svg.innerHTML = mapSvg(ui.view, w, h, hasBase, { shops: ps, sel: ui.wsel });
@@ -1337,8 +1345,9 @@ function focusSel() {
 }
 $('#buyForm').onsubmit = e => { e.preventDefault(); const v = $('#buyIn').value.trim(); if (!v) return; state.buy.push({ id: uid(), text: v, done: false, tags: TAGS.map(t => t[0]).filter(k => ui.newTags.includes(k)) }); $('#buyIn').value = ''; saveBuy(); render(); };
 $('#checkForm').onsubmit = e => { e.preventDefault(); const v = $('#checkIn').value.trim(); if (!v) return; state.check.push({ id: uid(), text: v, done: false }); $('#checkIn').value = ''; saveCheck(); render(); };
+bindArea('#wishAreaSel', '#wishArea');
 $('#wishForm').onsubmit = e => { e.preventDefault(); const v = $('#wishIn').value.trim(); if (!v) return;
-  state.wish.push({ id: uid(), text: v, done: false, area: $('#wishArea').value.trim(), cat: $('#wishCat').value }); $('#wishIn').value = ''; saveWish(); render(); $('#wishIn').focus(); };
+  state.wish.push({ id: uid(), text: v, done: false, area: areaVal('#wishAreaSel', '#wishArea'), cat: $('#wishCat').value }); if ($('#wishAreaSel').value === '__new') { const na = $('#wishArea').value.trim(); $('#wishArea').value = ''; $('#wishArea').hidden = true; $('#wishAreaSel').innerHTML = areaOpts(na); $('#wishAreaSel').value = na; } $('#wishIn').value = ''; saveWish(); render(); $('#wishIn').focus(); };
 // a shop and the itinerary places made from it (same id prefix, or the same name) share one address and location
 const norm = t => String(t || '').replace(/\s+/g, '').toLowerCase();
 function shopPlaces(it) {
@@ -1369,7 +1378,7 @@ function openWish(id) {
   const it = state.wish.find(x => x.id === id); if (!it) return;
   sheet('<h3>샵 수정</h3>' +
     '<div class="row"><label class="l" for="weText">가게 이름</label><input class="field" id="weText" maxlength="300" value="' + esc(it.text) + '"></div>' +
-    '<div class="row"><label class="l" for="weArea">지역</label><input class="field" id="weArea" list="areaList" maxlength="40" value="' + esc(it.area || '') + '"><span class="hint">역 이름(예: 우에노, 긴자)으로 적으면 지도에 묶음으로 표시돼요.</span></div>' +
+    '<div class="row"><label class="l" for="weAreaSel">지역</label><select class="field" id="weAreaSel">' + areaOpts(it.area || '') + '</select><input class="field" id="weArea" maxlength="40" placeholder="새 지역 이름" hidden style="margin-top:6px"><span class="hint">역 이름(예: 우에노, 긴자)으로 적으면 지도에 묶음으로 표시돼요.</span></div>' +
     '<div class="row"><label class="l" for="weCat">종류</label><select class="field" id="weCat">' + WCATS.map(c => '<option value="' + c[0] + '"' + (wcat(it.cat)[0] === c[0] ? ' selected' : '') + '>' + c[1] + '</option>').join('') + '</select></div>' +
     '<div class="row"><label class="l" for="weLoc">위치</label><input class="field" id="weLoc" placeholder="Google 지도 링크나 좌표 붙여넣기"><span class="hint">' + (isFinite(it.lat) ? '지금 위치 ' + it.lat.toFixed(5) + ', ' + it.lng.toFixed(5) + (it.approx ? ' (대략적인 위치)' : '') + '. 바꿀 때만 넣으세요.' : '아직 위치가 없어요.') + ' 일정에 있는 같은 가게에도 같이 반영돼요.</span><span class="err" id="weErr"></span></div>' +
     '<div class="row"><label class="l" for="weLink">Google 지도 링크</label><input class="field" id="weLink" maxlength="600" value="' + esc(it.link || '') + '" placeholder="https://maps.app.goo.gl/… (짧은 링크도 돼요)"><span class="hint">지도에서 이 가게 핀을 누르면 이 링크가 열려요. 위치 칸에 링크를 붙여 넣으면 여기도 같이 채워져요.</span></div>' +
@@ -1377,14 +1386,14 @@ function openWish(id) {
     '<div class="row"><span class="l">영업시간</span><div class="hgrid">' + tripWds().map(o => '<label><span>' + esc(o.label) + '</span><input class="field" data-hw="' + o.w + '" maxlength="40" value="' + esc((it.hours || {})[o.w] || '') + '" placeholder="11:00–20:00"></label>').join('') + '</div>' +
       '<textarea class="field" id="weHrsPaste" rows="2" placeholder="Google 지도 영업시간을 통째로 붙여 넣으면 요일별로 채워져요"></textarea><span class="hint">여행 날짜의 요일만 적으면 돼요. 쉬는 날은 휴무라고 적으세요.</span></div>' +
     '<div class="btns"><button class="btn danger" id="weDel" style="margin-right:auto">삭제</button><button class="btn primary" id="weSave">저장</button></div>', close => {
-      autoAddr('#weLoc', '#weAddr', '#weErr');
+      autoAddr('#weLoc', '#weAddr', '#weErr'); bindArea('#weAreaSel', '#weArea');
       $('#weLoc').addEventListener('input', e => { const v = e.target.value.trim(); if (/^https:\/\/\S+$/.test(v)) $('#weLink').value = v; });
       $('#weHrsPaste').addEventListener('input', e => { const h = parseHours(e.target.value); document.querySelectorAll('[data-hw]').forEach(inp => { if (h[inp.dataset.hw]) inp.value = h[inp.dataset.hw]; }); });
       $('#weSave').onclick = () => {
         const loc = $('#weLoc').value.trim(); let moved = false;
         if (loc && !(isShortLink(loc) && !parseCoords(loc) && isFinite(it.lat))) { const c = parseCoords(loc); if (!c) { $('#weErr').textContent = isShortLink(loc) ? '짧은 링크(maps.app.goo.gl)는 읽을 수 없어요. 브라우저에서 연 뒤 주소창의 긴 주소를 붙여 넣어 주세요.' : '위치를 찾지 못했어요. 예: 35.70120, 139.78680'; return; } it.lat = c.lat; it.lng = c.lng; it.approx = false; moved = true; }
         const oldName = it.text;
-        it.text = $('#weText').value.trim() || it.text; it.area = $('#weArea').value.trim(); it.cat = $('#weCat').value; it.addr = $('#weAddr').value.trim();
+        it.text = $('#weText').value.trim() || it.text; it.area = areaVal('#weAreaSel', '#weArea'); it.cat = $('#weCat').value; it.addr = $('#weAddr').value.trim();
         { const lk = $('#weLink').value.trim(); if (/^https:\/\/\S+$/.test(lk)) it.link = lk.slice(0, 600); else delete it.link; }
         const hrs = Object.assign({}, it.hours || {}); document.querySelectorAll('[data-hw]').forEach(inp => { const v = normHours(inp.value); if (v) hrs[inp.dataset.hw] = v; else delete hrs[inp.dataset.hw]; });
         if (Object.keys(hrs).length) it.hours = hrs; else delete it.hours;
