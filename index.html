@@ -705,7 +705,7 @@ function renderHeader() {
   $('#banner').innerHTML = b.map(t => '<div class="banner">' + esc(t) + '</div>').join('');
 }
 function renderTabs() {
-  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === ui.tab));
+  document.querySelectorAll('.seg button[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === ui.tab));
   $('#planPanel').hidden = ui.tab !== 'plan'; $('#checkPanel').hidden = ui.tab !== 'check'; $('#wishPanel').hidden = ui.tab !== 'wish'; $('#buyPanel').hidden = ui.tab !== 'buy';
   $('#checkForm').hidden = readOnly; $('#wishForm').hidden = readOnly; $('#buyForm').hidden = readOnly;
 }
@@ -1284,7 +1284,7 @@ function movePlace(pid, toDayId, toIdx) {
 
 document.addEventListener('click', e => {
   const t = e.target;
-  const tab = t.closest('.seg button'); if (tab) { ui.tab = tab.dataset.tab; render(); return; }
+  const tab = t.closest('.seg button[data-tab]'); if (tab) { ui.tab = tab.dataset.tab; render(); return; }
   const chip = t.closest('[data-day]'); if (chip) { ui.day = chip.dataset.day; ui.sel = null; lsSet('tp-day', ui.day); render(); return; }
   if (t.closest('#addDay')) { addDay(); return; }
   if (t.closest('#nameDay')) { openDayName(); return; }
