@@ -269,6 +269,31 @@ textarea.field{resize:vertical;min-height:70px}
 .tquick{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
 .pvtline{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-weight:800;font-size:12.5px;color:var(--muted)}
 .pvtline::after{content:"";flex:1;height:1px;background:var(--line)}
+.ttwrap{overflow-x:auto;margin:0 -4px;padding:2px 4px 8px}
+.tt{display:grid;grid-template-columns:40px repeat(var(--n),minmax(80px,1fr));gap:6px;align-items:stretch}
+.ttday{position:relative;background:var(--surface);border-radius:14px;padding:8px 8px 7px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.ttday .zno{font-size:11.5px;padding:2px 7px}
+.ttday .zdate{font-size:11.5px;color:var(--muted)}
+.ttday .zmenu{position:absolute;right:4px;top:4px}
+.ttlabel{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.ttslot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:12.5px;color:var(--ink);text-align:center}
+.ttslot small{font-family:var(--f-mono);font-size:10px;color:var(--muted);font-weight:600}
+.ttslot.none{color:var(--muted)}
+.ttcell{background:var(--surface);border-radius:12px;min-height:58px;padding:5px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow);min-width:0}
+.ttcell.zover{background:var(--accent-soft)}
+.zblk.ttb{display:flex;align-items:flex-start;gap:2px;border-radius:9px;padding:6px 5px;background:color-mix(in srgb,var(--zc) 16%,var(--surface));min-width:0}
+.ttb .zgrip{font-size:11px;padding:1px 1px 0 0}
+.ttname{flex:1;min-width:0;border:0;background:none;text-align:left;font-weight:700;font-size:12.5px;line-height:1.3;color:var(--ink);padding:0;overflow-wrap:anywhere}
+.ttname small{display:block;font-weight:500;font-size:10.5px;color:var(--muted)}
+.ttadd{margin-top:auto;border:0;background:none;color:var(--muted);font-size:16px;line-height:1;padding:3px;border-radius:8px;opacity:.45}
+.ttadd:hover,.ttcell:empty .ttadd{opacity:1;color:var(--accent)}
+.ttaddday{margin-top:10px}
+.zpick i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.zsh{display:flex;align-items:center;gap:8px}.zsh i{width:10px;height:10px;border-radius:50%;background:var(--zc)}
+.zsheetlist{padding:0 0 12px;font-size:13.5px;gap:6px}
+@media (max-width:860px){.tt{grid-template-columns:28px repeat(var(--n),minmax(70px,1fr));gap:4px}.ttday{padding:6px 5px}.ttday .zno{font-size:10.5px;padding:1px 6px}.ttday .zdate{font-size:10.5px}.ttday .zmenu{right:0;top:1px;padding:0 3px}.ttslot{font-size:11.5px}.ttslot small{font-size:9px}.ttcell{padding:4px;border-radius:10px}.zblk.ttb{padding:5px 4px}.ttname{font-size:11.5px;word-break:keep-all}.ttb .zgrip{font-size:9px}}
+.zmove{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;font-size:12.5px}.zmove>span{width:48px;color:var(--muted);font-weight:600}
+@media (min-width:861px){.tt{grid-template-columns:56px repeat(var(--n),minmax(150px,1fr));gap:8px}.ttname{font-size:14px}.ttcell{min-height:72px;padding:7px}}
 .zdel{border:0;background:none;color:var(--muted);font-size:17px;line-height:1;padding:2px 6px}
 .zdel:hover{color:var(--danger)}
 .zshops{list-style:none;margin:0;padding:0 10px 8px 26px;font-size:12.5px;display:flex;flex-direction:column;gap:3px}
@@ -599,7 +624,9 @@ async function flush(path) {
   } finally { busy.delete(path); }
 }
 const saveDay = d => save('days/' + d.id, { order: d.order, label: d.label || '', places: d.places, zones: d.zones || [] });
-const cleanZones = a => Array.isArray(a) ? a.filter(z => z && z.name).map(z => { const o = { id: String(z.id || uid()), name: String(z.name).slice(0, 40) }; if (z.kind === 'time') o.kind = 'time'; return o; }) : [];
+const SLOTS = [['am', '오전', '9시~'], ['noon', '점심', '12시~'], ['pm', '오후', '14시~'], ['eve', '저녁', '18시~'], ['night', '밤', '21시~']];
+const SLOT_IDS = new Set(SLOTS.map(x => x[0]));
+const cleanZones = a => Array.isArray(a) ? a.filter(z => z && z.name && z.kind !== 'time').map(z => { const o = { id: String(z.id || uid()), name: String(z.name).slice(0, 40) }; if (SLOT_IDS.has(z.slot)) o.slot = z.slot; return o; }) : [];
 const isTimeZ = z => z && z.kind === 'time';
 const saveMeta = () => save('trip/meta', { title: state.meta.title, start: state.meta.start, stay: state.meta.stay || null });
 function cleanStay(x) {
@@ -690,7 +717,8 @@ function renderPage() {
     const c = dayColor(i), zs = d.zones || [];
     h += '<section id="pv-d' + i + '" style="--c:' + c + '">' + pvSection('', 'DAY ' + String(i + 1).padStart(2, '0'), zs.some(z => !isTimeZ(z)) ? zs.filter(z => !isTimeZ(z)).map(z => z.name).join(' · ') : (d.label || ('day ' + (i + 1))), c, [dayDate(i), zs.length ? d.label : ''].filter(Boolean).join(' · '));
     if (!zs.length) { h += '<div class="pvempty">아직 구역이 없어요</div></section>'; return; }
-    h += '<div class="pvzones">' + zs.map(z => { if (isTimeZ(z)) return '<div class="pvtline">🕘 ' + esc(z.name) + '</div>'; const shops = zoneShops(z.name);
+    const zsl = [['', '시간 미정']].concat(SLOTS).flatMap(([sid, lb]) => { const a = zs.filter(z => !isTimeZ(z) && (SLOT_IDS.has(z.slot) ? z.slot : '') === sid); return a.length ? [{ head: lb }].concat(a) : []; });
+    h += '<div class="pvzones">' + zsl.map(z => { if (z.head) return '<div class="pvtline">' + esc(z.head) + '</div>'; const shops = zoneShops(z.name);
       return '<div class="pvzone" style="--zc:' + zoneColor(z.name) + '"><h3>' + esc(z.name) + (shops.length ? ' <span>' + shops.length + '곳</span>' : '') + '</h3>' +
         (shops.length ? '<ul>' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '">' + wcat(it.cat)[3] + ' ' + esc(it.text) + hoursTag(it, dayWd(i)) + '</li>').join('') + '</ul>' : '') + '</div>'; }).join('') + '</div></section>';
   });
@@ -756,32 +784,57 @@ function renderPlan() {
   $('#days').innerHTML = '';
   const body = $('#dayBody');
   if (!ready) { body.innerHTML = '<div class="empty">일정을 불러오고 있어요…</div>'; return; }
-  const names = zoneNames();
-  let h = '';
-  h += '<div class="zboard">';
-  state.days.forEach((d, i) => {
-    const c = dayColor(i), zs = d.zones || [];
-    h += '<section class="zday" data-zday="' + esc(d.id) + '" style="--c:' + c + '"><header><span class="zno">DAY ' + (i + 1) + '</span>' + (dayDate(i) ? '<span class="zdate">' + dayDate(i) + '</span>' : '') +
-      (readOnly ? '' : '<button class="zmenu" data-zdaymenu="' + esc(d.id) + '" aria-label="day ' + (i + 1) + ' 설정">⋯</button>') + '</header>' +
-      (d.label ? '<div class="zlabel">' + esc(d.label) + '</div>' : '') + '<div class="zlist">';
-    if (!zs.length) h += '<div class="zempty">' + (readOnly ? '비어 있어요' : '여기에 구역을 놓으세요') + '</div>';
-    zs.forEach(z => {
-      if (isTimeZ(z)) { h += '<div class="zblk zline" data-zid="' + esc(z.id) + '"><div class="zrow">' + (readOnly ? '' : '<span class="zgrip" data-zgrip aria-label="끌어서 옮기기">⠿</span>') +
-        '<button class="ztl" data-ztedit="' + esc(z.id) + '"' + (readOnly ? ' disabled' : '') + '>🕘 ' + esc(z.name) + '</button>' + (readOnly ? '' : '<button class="zdel" data-zdel="' + esc(z.id) + '" aria-label="시간 빼기">×</button>') + '</div></div>'; return; }
-      const shops = zoneShops(z.name), open = ui.zopen.has(z.id);
-      h += '<div class="zblk" data-zid="' + esc(z.id) + '" style="--zc:' + zoneColor(z.name) + '">' +
-        '<div class="zrow">' + (readOnly ? '' : '<span class="zgrip" data-zgrip aria-label="끌어서 옮기기">⠿</span>') +
-        '<button class="zname" data-ztoggle="' + esc(z.id) + '">' + esc(z.name) + (shops.length ? ' <small>' + shops.length + '곳 ' + (open ? '▴' : '▾') + '</small>' : '') + '</button>' +
-        (readOnly ? '' : '<button class="zdel" data-zdel="' + esc(z.id) + '" aria-label="' + esc(z.name) + ' 빼기">×</button>') + '</div>' +
-        (open && shops.length ? '<ul class="zshops">' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '" data-mid="' + esc(it.id) + '" data-mkind="zshop">' + (readOnly || shops.length < 2 ? '' : '<span class="zsgrip" data-mgrip aria-label="끌어서 순서 바꾸기">⠿</span>') + '<span class="zst">' + wcat(it.cat)[3] + ' ' + esc(it.text) + hoursTag(it, dayWd(i)) + '</span></li>').join('') + '</ul>' : '') + '</div>';
-    });
-    h += '</div>' + (readOnly ? '' : '<select class="zsel" data-zadd="' + esc(d.id) + '" aria-label="day ' + (i + 1) + '에 구역 추가"><option value="">+ 구역 추가</option>' +
-      names.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('') + '<option value="__time">🕘 시간 추가…</option><option value="__new">직접 입력…</option></select>') + '</section>';
+  const days = state.days, slotOf = z => SLOT_IDS.has(z.slot) ? z.slot : '';
+  const rows = (days.some(d => (d.zones || []).some(z => !isTimeZ(z) && !slotOf(z))) ? [['', '미정', '']] : []).concat(SLOTS);
+  let h = '<div class="ttwrap"><div class="tt" style="--n:' + Math.max(days.length, 1) + '"><div class="ttcorner"></div>';
+  days.forEach((d, i) => {
+    h += '<div class="ttday" style="--c:' + dayColor(i) + '"><span class="zno">DAY ' + (i + 1) + '</span><span class="zdate">' + (dayDate(i) || '') + '</span>' +
+      (d.label ? '<span class="ttlabel">' + esc(d.label) + '</span>' : '') +
+      (readOnly ? '' : '<button class="zmenu" data-zdaymenu="' + esc(d.id) + '" aria-label="day ' + (i + 1) + ' 설정">⋯</button>') + '</div>';
   });
-  if (!readOnly) h += '<button class="zday zaddday" id="addDay">+ day 추가</button>';
-  h += '</div>';
-  if (!state.days.length) h += '<div class="empty">아직 day가 없어요. <b>+ day 추가</b>로 첫 날을 만들어 보세요.</div>';
+  rows.forEach(([sid, label, hint]) => {
+    h += '<div class="ttslot' + (sid ? '' : ' none') + '"><b>' + label + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</div>';
+    days.forEach((d, i) => {
+      const zs = (d.zones || []).filter(z => !isTimeZ(z) && slotOf(z) === sid);
+      h += '<div class="ttcell" data-zday="' + esc(d.id) + '" data-zslot="' + sid + '" style="--c:' + dayColor(i) + '">' +
+        zs.map(z => { const n = zoneShops(z.name).length;
+          return '<div class="zblk ttb" data-zid="' + esc(z.id) + '" style="--zc:' + zoneColor(z.name) + '">' + (readOnly ? '' : '<span class="zgrip" data-zgrip aria-label="끌어서 옮기기">⠿</span>') +
+            '<button class="ttname" data-zsheet="' + esc(z.id) + '">' + esc(z.name) + (n ? '<small>' + n + '곳</small>' : '') + '</button></div>'; }).join('') +
+        (readOnly ? '' : '<button class="ttadd" data-ttadd="' + esc(d.id) + '" data-slot="' + sid + '" aria-label="day ' + (i + 1) + ' ' + label + '에 구역 추가">+</button>') + '</div>';
+    });
+  });
+  h += '</div></div>';
+  if (!readOnly) h += '<button class="btn ttaddday" id="addDay">+ day 추가</button>';
+  if (!days.length) h += '<div class="empty">아직 day가 없어요. <b>+ day 추가</b>로 첫 날을 만들어 보세요.</div>';
   body.innerHTML = h;
+}
+function openAddZone(dayId, slot) {
+  const d = state.days.find(x => x.id === dayId); if (!d) return;
+  const i = dayIndex(d), sl = SLOTS.find(x => x[0] === slot), names = zoneNames();
+  sheet('<h3>day ' + (i + 1) + (sl ? ' · ' + sl[1] : '') + '에 구역 추가</h3>' +
+    '<div class="tquick">' + names.map(n => '<button type="button" class="cat zpick" data-zpick="' + esc(n) + '" style="--c:' + zoneColor(n) + '"><i></i>' + esc(n) + (zoneShops(n).length ? ' <b>' + zoneShops(n).length + '</b>' : '') + '</button>').join('') + '</div>' +
+    '<div class="row"><label class="l" for="zNew">직접 입력</label><input class="field" id="zNew" maxlength="40" placeholder="예: 나리타공항, 디즈니씨, 숙소 휴식"></div>' +
+    '<div class="btns"><button class="btn" data-close>닫기</button><button class="btn primary" id="zNewOk">추가</button></div>', close => {
+      const add = v => { v = String(v || '').trim().slice(0, 40); if (!v) return; d.zones = d.zones || []; const z = { id: uid(), name: v }; if (slot) z.slot = slot; d.zones.push(z); saveDay(d); close(); render(); };
+      document.querySelectorAll('[data-zpick]').forEach(b => b.onclick = () => add(b.dataset.zpick));
+      $('#zNewOk').onclick = () => add($('#zNew').value); $('#zNew').addEventListener('keydown', e => { if (e.key === 'Enter') add($('#zNew').value); });
+    });
+}
+function openZoneSheet(zid) {
+  const f = findZone(zid); if (!f) return;
+  const i = dayIndex(f.d), shops = zoneShops(f.z.name), w = dayWd(i), sl = SLOTS.find(x => x[0] === f.z.slot);
+  sheet('<h3 class="zsh" style="--zc:' + zoneColor(f.z.name) + '"><i></i>' + esc(f.z.name) + '</h3><p class="sub" style="margin-top:-6px">DAY ' + (i + 1) + (dayDate(i) ? ' · ' + dayDate(i) : '') + (sl ? ' · ' + sl[1] : '') + '</p>' +
+    (shops.length ? '<ul class="zshops zsheetlist" data-zsheetlist="' + esc(zid) + '">' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '" data-mid="' + esc(it.id) + '" data-mkind="zshop">' + (readOnly || shops.length < 2 ? '' : '<span class="zsgrip" data-mgrip aria-label="끌어서 순서 바꾸기">⠿</span>') + '<span class="zst">' + wcat(it.cat)[3] + ' ' + esc(it.text) + hoursTag(it, w) + '</span></li>').join('') + '</ul>'
+      : '<p class="sub">이 구역에 등록된 샵이 없어요.</p>') +
+    (readOnly ? '' : '<div class="zmove"><span>언제</span>' + SLOTS.map(x => '<button type="button" class="cat" data-zmslot="' + x[0] + '" aria-pressed="' + (f.z.slot === x[0]) + '" style="--c:var(--accent)">' + x[1] + '</button>').join('') + '</div>' +
+      '<div class="zmove"><span>어느 날</span>' + state.days.map((dd, k) => '<button type="button" class="cat" data-zmday="' + esc(dd.id) + '" aria-pressed="' + (dd === f.d) + '" style="--c:' + dayColor(k) + '">day ' + (k + 1) + '</button>').join('') + '</div>') +
+    '<div class="btns">' + (readOnly ? '' : '<button class="btn danger" id="zsDel" style="margin-right:auto">이 day에서 빼기</button>') + '<button class="btn" data-close>닫기</button></div>', close => {
+      if (!readOnly) {
+        document.querySelectorAll('[data-zmslot]').forEach(b => b.onclick = () => { const g = findZone(zid); if (!g) return; g.z.slot = b.dataset.zmslot; saveDay(g.d); render(); openZoneSheet(zid); });
+        document.querySelectorAll('[data-zmday]').forEach(b => b.onclick = () => { const g = findZone(zid), to = state.days.find(x => x.id === b.dataset.zmday); if (!g || !to || to === g.d) return; g.d.zones.splice(g.k, 1); to.zones = to.zones || []; to.zones.push(g.z); saveDay(g.d); saveDay(to); render(); openZoneSheet(zid); });
+      }
+      if (!readOnly) $('#zsDel').onclick = () => { const g = findZone(zid); if (!g) return; g.d.zones.splice(g.k, 1); saveDay(g.d); close(); render(); toast('‘' + g.z.name + '’ 블록을 뺐어요', () => { g.d.zones.splice(g.k, 0, g.z); saveDay(g.d); render(); }); };
+    });
 }
 function addZone(dayId, name, at) {
   const d = state.days.find(x => x.id === dayId); if (!d || !name) return;
@@ -854,7 +907,7 @@ document.addEventListener('pointermove', e => {
     for (let k = 0; k < blocks.length; k++) { const r = blocks[k].getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { at = k; mark = [blocks[k], 'zbefore']; break; } }
     if (!mark && blocks.length) mark = [blocks[blocks.length - 1], 'zafter'];
     day.classList.add('zover'); if (mark) mark[0].classList.add(mark[1]);
-    zdrag.target = { day: day.dataset.zday, at, before: mark && mark[1] === 'zbefore' ? mark[0].dataset.zid : null };
+    zdrag.target = { day: day.dataset.zday, slot: day.dataset.zslot, at, before: mark && mark[1] === 'zbefore' ? mark[0].dataset.zid : null };
   }
   if (e.clientY < 60) window.scrollBy(0, -12); else if (e.clientY > innerHeight - 60) window.scrollBy(0, 12);
   const sc = $('.panel-scroll'); if (sc) { const sr = sc.getBoundingClientRect(); if (e.clientY < sr.top + 50) sc.scrollTop -= 12; else if (e.clientY > sr.bottom - 50) sc.scrollTop += 12; }
@@ -871,6 +924,7 @@ const endZdrag = () => {
   f.d.zones.splice(f.k, 1);
   let at = d.target.before ? to.zones.findIndex(z => z.id === d.target.before) : to.zones.length; if (at < 0) at = to.zones.length;
   to.zones.splice(at, 0, f.z);
+  if (d.target.slot != null) { if (d.target.slot) f.z.slot = d.target.slot; else delete f.z.slot; }
   saveDay(f.d); if (to !== f.d) saveDay(to); render();
 };
 document.addEventListener('pointerup', endZdrag);
@@ -990,7 +1044,7 @@ const endMdrag = () => {
     const arr = state.wish, from = arr.findIndex(x => x.id === d.id); if (from < 0) return;
     const [it] = arr.splice(from, 1), to = arr.findIndex(x => x.id === d.target.id);
     if (to < 0) { arr.splice(from, 0, it); return; }
-    arr.splice(to + (d.target.after ? 1 : 0), 0, it); saveWish(); render(); return;
+    arr.splice(to + (d.target.after ? 1 : 0), 0, it); saveWish(); render(); { const sl = d.li.closest('[data-zsheetlist]'); if (sl) openZoneSheet(sl.dataset.zsheetlist); } return;
   }
   const arr = memoArr(d.kind), from = arr.findIndex(x => x.id === d.id); if (from < 0) return;
   const [it] = arr.splice(from, 1);
@@ -1345,6 +1399,8 @@ document.addEventListener('click', e => {
   const zt = t.closest('[data-ztoggle]'); if (zt) { const k = zt.dataset.ztoggle; if (ui.zopen.has(k)) ui.zopen.delete(k); else ui.zopen.add(k); render(); return; }
   const zte = t.closest('[data-ztedit]'); if (zte) { if (!readOnly) openTimeLine(null, zte.dataset.ztedit); return; }
   const zd = t.closest('[data-zdel]'); if (zd) { const f = findZone(zd.dataset.zdel); if (f) { f.d.zones.splice(f.k, 1); saveDay(f.d); render(); toast('‘' + f.z.name + '’ 블록을 뺐어요', () => { f.d.zones.splice(f.k, 0, f.z); saveDay(f.d); render(); }); } return; }
+  const zsh = t.closest('[data-zsheet]'); if (zsh) { openZoneSheet(zsh.dataset.zsheet); return; }
+  const tta = t.closest('[data-ttadd]'); if (tta) { openAddZone(tta.dataset.ttadd, tta.dataset.slot); return; }
   const zm = t.closest('[data-zdaymenu]'); if (zm) { openDayMenu(zm.dataset.zdaymenu); return; }
   const del = t.closest('[data-del]'); if (del) { removePlace(del.dataset.del); return; }
   const up = t.closest('[data-up]'); if (up) { const f = findPlace(up.dataset.up); movePlace(f.p.id, f.d.id, f.k - 1); return; }
