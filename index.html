@@ -11,28 +11,31 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@600;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
 <style>
 /* Layout: day timeline panel on the left, a gridded distance map on the right (stacked on phones, map first). */
 :root{
-  --bg:#f4f5f8; --surface:#ffffff; --ink:#1b1c25; --muted:#6a6e80; --line:#e2e4ec;
-  --accent:#5f45e6; --accent-ink:#ffffff; --accent-soft:#ece8fd;
+  --bg:#f2f3f5; --surface:#ffffff; --ink:#111214; --muted:#8b8f98; --line:#eceef1;
+  --accent:#e8383d; --accent-ink:#ffffff; --accent-soft:#fdeaea; --tab:#111214; --tab-ink:#ffffff; --seg:#e6e8ec;
+  --shadow:0 2px 12px rgba(17,18,20,.06);
   --map:#eeefe9; --sea:#d4e3ec; --ward:#c9cdc2; --map-grid:#d5ded5; --map-ink:#3d4a42; --pill:#ffffff;
   --danger:#d4433a; --ok:#18936f;
-  --f-display:"Gowun Batang","Noto Serif KR",serif;
-  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --f-display:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"Inter",ui-sans-serif,system-ui,sans-serif;
   --r:12px;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#13141a; --surface:#1c1e26; --ink:#eceef5; --muted:#9a9fb3; --line:#2c2f3b;
-  --accent:#9583ff; --accent-ink:#14121f; --accent-soft:#2a2550;
+  --bg:#0f1012; --surface:#1a1b1f; --ink:#f1f2f4; --muted:#8e929b; --line:#26282d;
+  --accent:#ff5a5f; --accent-ink:#ffffff; --accent-soft:#3a1d1f; --tab:#f1f2f4; --tab-ink:#111214; --seg:#23252a;
+  --shadow:0 2px 12px rgba(0,0,0,.35);
   --map:#1d211f; --sea:#111a21; --ward:#343a36; --map-grid:#25312c; --map-ink:#b9c8be; --pill:#242733;
   --danger:#ff6f64; --ok:#3cc79c; color-scheme:dark;
 }}
 :root[data-theme="dark"]{
-  --bg:#13141a; --surface:#1c1e26; --ink:#eceef5; --muted:#9a9fb3; --line:#2c2f3b;
-  --accent:#9583ff; --accent-ink:#14121f; --accent-soft:#2a2550;
+  --bg:#0f1012; --surface:#1a1b1f; --ink:#f1f2f4; --muted:#8e929b; --line:#26282d;
+  --accent:#ff5a5f; --accent-ink:#ffffff; --accent-soft:#3a1d1f; --tab:#f1f2f4; --tab-ink:#111214; --seg:#23252a;
+  --shadow:0 2px 12px rgba(0,0,0,.35);
   --map:#1d211f; --sea:#111a21; --ward:#343a36; --map-grid:#25312c; --map-ink:#b9c8be; --pill:#242733;
   --danger:#ff6f64; --ok:#3cc79c; color-scheme:dark;
 }
@@ -345,6 +348,28 @@ textarea.field{resize:vertical;min-height:70px}
   .pvh h2{font-size:22px}
 }
 @media (prefers-reduced-motion:no-preference){.card,.btn,.daychip{transition:border-color .15s,box-shadow .15s}}
+/* Design B: modern app */
+.panel{background:var(--bg)}
+.trip-title{font-weight:900;font-size:28px;letter-spacing:-.03em}
+.seg{background:var(--seg);border-radius:14px;padding:4px}
+.seg button{border-radius:11px;font-weight:700}
+.seg button[aria-selected="true"]{background:var(--tab);color:var(--tab-ink);box-shadow:none}
+.zday{border:0;border-top:0;border-radius:20px;box-shadow:var(--shadow);padding:14px}
+.zno{font-family:var(--f-mono);font-weight:800;font-size:13px;color:#fff;background:var(--c);padding:3px 8px;border-radius:999px;letter-spacing:.04em}
+.zblk{border-radius:14px;border-left:0;background:color-mix(in srgb,var(--zc) 12%,var(--surface))}
+.zblk .zrow{padding-left:4px}
+.zaddday{box-shadow:none}
+.btn,.field{border-radius:14px}.field{background:var(--bg);border-color:transparent}
+.btn.primary{border-radius:14px;font-weight:700}
+.mlist li{border:0;border-radius:16px;background:var(--surface);box-shadow:0 1px 6px rgba(17,18,20,.05)}
+.cat{border:0;background:var(--surface);box-shadow:0 1px 4px rgba(17,18,20,.06)}
+.memo h2{font-weight:900;font-size:22px;letter-spacing:-.02em}
+.wgroup h3{font-weight:900}
+#wishMapSlot .mapwrap{border:0;border-radius:20px}
+.iconbtn{border:0;background:var(--surface);box-shadow:0 1px 4px rgba(17,18,20,.08)}
+.pagebtn{color:var(--accent)}
+.sheet{border-radius:20px}
+.pvzone{border:0;border-left:0;border-radius:16px;box-shadow:var(--shadow);background:color-mix(in srgb,var(--zc) 8%,var(--surface))}
 </style>
 
 <div class="app">
@@ -723,10 +748,7 @@ function renderPlan() {
   const body = $('#dayBody');
   if (!ready) { body.innerHTML = '<div class="empty">일정을 불러오고 있어요…</div>'; return; }
   const names = zoneNames();
-  let h = '<div class="zpal"><div class="zpal-h"><b>구역 블록</b><span>' + (readOnly ? '' : '끌어서 day에 놓거나, 각 day 아래에서 골라 넣으세요') + '</span></div><div class="zchips">' +
-    (names.length ? names.map(n => { const u = zoneUse(n), cnt = zoneShops(n).length;
-      return '<span class="zchip' + (u.length ? '' : ' unused') + '" data-zsrc="' + esc(n) + '" style="--zc:' + zoneColor(n) + '">' + esc(n) + (cnt ? ' <small>' + cnt + '</small>' : '') + (u.length ? ' <em>' + u.map(x => 'd' + x).join(' ') + '</em>' : '') + '</span>'; }).join('')
-      : '<span class="hint">샵리스트에 지역을 적으면 여기에 블록이 생겨요</span>') + '</div></div>';
+  let h = '';
   h += '<div class="zboard">';
   state.days.forEach((d, i) => {
     const c = dayColor(i), zs = d.zones || [];
