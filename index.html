@@ -418,7 +418,7 @@ textarea.field{resize:vertical;min-height:70px}
         <h2>위시리스트</h2>
         <p class="sub">사고 싶은 물건. 누구 것인지, 어떤 종류인지 태그로 나눠 두세요. 산 것은 체크하고, ⠿를 끌어서 순서를 바꿔요.</p>
         <form class="addform" id="buyForm"><input class="field" id="buyIn" placeholder="예: 하치와레 키링, 칼디 커피" maxlength="300"><button class="btn primary">추가</button></form>
-        <div class="newtags" id="buyNew"></div>
+        <div class="newtags" id="buyNew" hidden></div>
         <div class="cats" id="buyTags"></div>
         <ul class="mlist" id="buyList"></ul>
       </div>
@@ -433,6 +433,8 @@ textarea.field{resize:vertical;min-height:70px}
       <div id="wishPanel" class="memo" hidden>
         <h2>샵리스트</h2>
         <p class="sub">가고 싶은 가게를 지역과 종류로 모아 두세요. 지역을 역 이름으로 적으면 지도에 묶음으로 표시돼요.</p>
+        <div class="cats" id="wCats"></div>
+        <div id="wishMapSlot"></div>
         <form class="wform" id="wishForm">
           <input class="field" id="wishIn" placeholder="가게 이름 (예: 칼디)" maxlength="300">
           <select class="field" id="wishAreaSel" aria-label="지역"></select>
@@ -441,8 +443,6 @@ textarea.field{resize:vertical;min-height:70px}
           <button class="btn primary">샵리스트에 추가</button>
         </form>
         <div class="wtools"><div class="seg" role="tablist" id="wGroup"><button data-wg="area" aria-selected="true">지역별</button><button data-wg="cat" aria-selected="false">종류별</button></div><button class="foldall" id="wFoldAll">모두 접기</button></div>
-        <div class="cats" id="wCats"></div>
-        <div id="wishMapSlot"></div>
         <div id="wishList"></div>
       </div>
     </div>
@@ -873,7 +873,7 @@ function wishAreas() {
 function renderWish() {
   document.querySelectorAll('#wGroup button').forEach(b => b.setAttribute('aria-selected', b.dataset.wg === ui.wg));
   const counts = {}; state.wish.forEach(it => { const k = wcat(it.cat)[0]; counts[k] = (counts[k] || 0) + 1; });
-  $('#wCats').innerHTML = WCATS.filter(c => counts[c[0]]).map(c => '<button class="cat" data-wcat="' + c[0] + '" aria-pressed="' + (ui.wcat === c[0]) + '" style="--c:' + c[2] + '">' + c[3] + ' ' + c[1] + ' <b>' + counts[c[0]] + '</b></button>').join('');
+  $('#wCats').innerHTML = (state.wish.length ? '<button class="cat" data-wcat="" aria-pressed="' + !ui.wcat + '" style="--c:var(--accent)">전체 <b>' + state.wish.length + '</b></button>' : '') + WCATS.filter(c => counts[c[0]]).map(c => '<button class="cat" data-wcat="' + c[0] + '" aria-pressed="' + (ui.wcat === c[0]) + '" style="--c:' + c[2] + '">' + c[3] + ' ' + c[1] + ' <b>' + counts[c[0]] + '</b></button>').join('');
   const sel = $('#wishCat'); if (!sel.options.length) sel.innerHTML = WCATS.map(c => '<option value="' + c[0] + '">' + c[1] + '</option>').join('');
   { const as = $('#wishAreaSel'), cur = as.value; if (cur !== '__new') { as.innerHTML = areaOpts(cur); as.value = cur; } }
   const box = $('#wishList'), items = state.wish.filter(it => !ui.wcat || wcat(it.cat)[0] === ui.wcat);
@@ -1343,7 +1343,7 @@ document.addEventListener('click', e => {
     keys.forEach(k => allFolded ? ui.wfold.delete(k) : ui.wfold.add(k)); saveFold(); render(); return;
   }
   const wg = t.closest('[data-wg]'); if (wg) { ui.wg = wg.dataset.wg; lsSet('tp-wg', ui.wg); render(); return; }
-  const wc = t.closest('[data-wcat]'); if (wc) { ui.wcat = ui.wcat === wc.dataset.wcat ? null : wc.dataset.wcat; render(); return; }
+  const wc = t.closest('[data-wcat]'); if (wc) { { const v = wc.dataset.wcat || null; ui.wcat = v && ui.wcat === v ? null : v; } render(); return; }
   const wa = t.closest('[data-warea]'); if (wa) { gotoArea(wa.dataset.warea); return; }
   const wm = t.closest('[data-wmap]'); if (wm) { const c = areaCoord(wm.dataset.wmap); if (c && ui.view) { ui.view.cx = mx(c.lng); ui.view.cy = my(c.lat); renderMap(); $('#mapwrap').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } return; }
   const we = t.closest('[data-wedit]'); if (we) { openWish(we.dataset.wedit); return; }
@@ -1365,7 +1365,7 @@ function focusSel() {
   const { w, h } = mapSize(), v = ui.view, x = (mx(f.p.lng) - v.cx) * v.s + w / 2, y = (v.cy - my(f.p.lat)) * v.s + h / 2;
   if (x < 40 || x > w - 40 || y < 60 || y > h - 40) { v.cx = mx(f.p.lng); v.cy = my(f.p.lat); renderMap(); }
 }
-$('#buyForm').onsubmit = e => { e.preventDefault(); const v = $('#buyIn').value.trim(); if (!v) return; state.buy.push({ id: uid(), text: v, done: false, tags: TAGS.map(t => t[0]).filter(k => ui.newTags.includes(k)) }); $('#buyIn').value = ''; saveBuy(); render(); };
+$('#buyForm').onsubmit = e => { e.preventDefault(); const v = $('#buyIn').value.trim(); if (!v) return; state.buy.push({ id: uid(), text: v, done: false, tags: ui.btag ? [ui.btag] : [] }); $('#buyIn').value = ''; saveBuy(); render(); };
 $('#checkForm').onsubmit = e => { e.preventDefault(); const v = $('#checkIn').value.trim(); if (!v) return; state.check.push({ id: uid(), text: v, done: false }); $('#checkIn').value = ''; saveCheck(); render(); };
 bindArea('#wishAreaSel', '#wishArea');
 $('#wishForm').onsubmit = e => { e.preventDefault(); const v = $('#wishIn').value.trim(); if (!v) return;
