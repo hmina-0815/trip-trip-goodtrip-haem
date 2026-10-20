@@ -600,7 +600,7 @@ const saveDay = d => save('days/' + d.id, { order: d.order, label: d.label || ''
 const TIMERE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const cleanZones = a => Array.isArray(a) ? a.filter(z => z && z.name && z.kind !== 'time').map(z => z.kind === 'resv' && TIMERE.test(z.time) ? { id: String(z.id || uid()), name: String(z.name).slice(0, 40), kind: 'resv', time: z.time } : z.kind === 'resv' ? null : { id: String(z.id || uid()), name: String(z.name).slice(0, 40) }).filter(Boolean) : [];
 const isResv = z => z && z.kind === 'resv';
-const resvLabel = n => /^\p{Extended_Pictographic}/u.test(n) ? n : (/기차|신칸센|JR|열차|버스|스카이라이너|N'EX|넥스/i.test(n) ? '🚆 ' : /비행|항공|출국|입국|귀국|공항|flight|\b(KE|OZ|7C|LJ|TW|ZE|RS|BX|JL|NH)\s?\d/i.test(n) ? '✈️ ' : '📌 ') + n;
+const resvLabel = n => /^\p{Extended_Pictographic}/u.test(n) ? n : (/기차|신칸센|JR|열차|버스|스카이라이너|N'EX|넥스/i.test(n) ? '🚆 ' : /비행|항공|출국|입국|귀국|공항|flight|\b(NRT|HND|ICN|GMP|PUS|CJU)\b|\b(KE|OZ|7C|LJ|TW|ZE|RS|BX|JL|NH)\s?\d/i.test(n) ? '✈️ ' : '📌 ') + n;
 const saveMeta = () => save('trip/meta', { title: state.meta.title, start: state.meta.start, stay: state.meta.stay || null });
 function cleanStay(x) {
   if (!x || typeof x !== 'object' || !isFinite(+x.lat) || !isFinite(+x.lng) || x.lat === null) return null;
