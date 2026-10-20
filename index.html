@@ -600,6 +600,7 @@ const saveDay = d => save('days/' + d.id, { order: d.order, label: d.label || ''
 const TIMERE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const cleanZones = a => Array.isArray(a) ? a.filter(z => z && z.name && z.kind !== 'time').map(z => z.kind === 'resv' && TIMERE.test(z.time) ? { id: String(z.id || uid()), name: String(z.name).slice(0, 40), kind: 'resv', time: z.time } : z.kind === 'resv' ? null : { id: String(z.id || uid()), name: String(z.name).slice(0, 40) }).filter(Boolean) : [];
 const isResv = z => z && z.kind === 'resv';
+const resvLabel = n => /^\p{Extended_Pictographic}/u.test(n) ? n : (/기차|신칸센|JR|열차|버스|스카이라이너|N'EX|넥스/i.test(n) ? '🚆 ' : /비행|항공|출국|입국|귀국|공항|flight|\b(KE|OZ|7C|LJ|TW|ZE|RS|BX|JL|NH)\s?\d/i.test(n) ? '✈️ ' : '📌 ') + n;
 const saveMeta = () => save('trip/meta', { title: state.meta.title, start: state.meta.start, stay: state.meta.stay || null });
 function cleanStay(x) {
   if (!x || typeof x !== 'object' || !isFinite(+x.lat) || !isFinite(+x.lng) || x.lat === null) return null;
@@ -689,7 +690,7 @@ function renderPage() {
     const c = dayColor(i), zs = d.zones || [], zn = zs.filter(z => !isResv(z));
     h += '<section id="pv-d' + i + '" style="--c:' + c + '">' + pvSection('', 'DAY ' + String(i + 1).padStart(2, '0'), zn.length ? zn.map(z => z.name).join(' · ') : (d.label || ('day ' + (i + 1))), c, [dayDate(i), zs.length ? d.label : ''].filter(Boolean).join(' · '));
     if (!zs.length) { h += '<div class="pvempty">아직 구역이 없어요</div></section>'; return; }
-    h += '<div class="pvzones">' + zs.map(z => { if (isResv(z)) return '<div class="pvresv"><b>' + esc(z.time) + '</b> 📌 ' + esc(z.name) + '</div>'; const shops = zoneShops(z.name);
+    h += '<div class="pvzones">' + zs.map(z => { if (isResv(z)) return '<div class="pvresv"><b>' + esc(z.time) + '</b> ' + esc(resvLabel(z.name)) + '</div>'; const shops = zoneShops(z.name);
       return '<div class="pvzone" style="--zc:' + zoneColor(z.name) + '"><h3>' + esc(z.name) + (shops.length ? ' <span>' + shops.length + '곳</span>' : '') + '</h3>' +
         (shops.length ? '<ul>' + shops.map(it => '<li class="' + (it.done ? 'done' : '') + '">' + wcat(it.cat)[3] + ' ' + esc(it.text) + hoursTag(it, dayWd(i)) + '</li>').join('') + '</ul>' : '') + '</div>'; }).join('') + '</div></section>';
   });
@@ -766,7 +767,7 @@ function renderPlan() {
     if (!zs.length) h += '<div class="zempty">' + (readOnly ? '비어 있어요' : '여기에 구역을 놓으세요') + '</div>';
     zs.forEach(z => {
       if (isResv(z)) { h += '<div class="zblk zresv" data-zid="' + esc(z.id) + '">' + (readOnly ? '' : '<span class="zgrip" data-zgrip aria-label="끌어서 옮기기">⠿</span>') +
-        '<button class="zrname" data-zresv="' + esc(z.id) + '"' + (readOnly ? ' disabled' : '') + '><b>' + esc(z.time) + '</b><span>📌 ' + esc(z.name) + '</span></button>' +
+        '<button class="zrname" data-zresv="' + esc(z.id) + '"' + (readOnly ? ' disabled' : '') + '><b>' + esc(z.time) + '</b><span>' + esc(resvLabel(z.name)) + '</span></button>' +
         (readOnly ? '' : '<button class="zdel" data-zdel="' + esc(z.id) + '" aria-label="' + esc(z.name) + ' 빼기">×</button>') + '</div>'; return; }
       const shops = zoneShops(z.name), open = ui.zopen.has(z.id);
       h += '<div class="zblk" data-zid="' + esc(z.id) + '" style="--zc:' + zoneColor(z.name) + '">' +
@@ -800,7 +801,7 @@ function openZoneName(dayId) {
 function openResv(dayId, zid) {
   const f = zid ? findZone(zid) : null, d = f ? f.d : state.days.find(x => x.id === dayId); if (!d) return;
   const z = f ? f.z : null, food = state.wish.filter(it => it.cat === 'food').map(it => it.text).slice(0, 12);
-  sheet('<h3>' + (z ? '예약 수정' : '📌 예약 추가') + '</h3><div class="row"><label class="l" for="rName">무엇을</label><input class="field" id="rName" maxlength="40" value="' + esc(z ? z.name : '') + '" placeholder="예: 규카츠 모토무라 예약, 스카이트리 입장" list="rList"><datalist id="rList">' + food.map(t => '<option value="' + esc(t) + '">').join('') + '</datalist></div>' +
+  sheet('<h3>' + (z ? '예약 수정' : '📌 예약 추가') + '</h3><div class="row"><label class="l" for="rName">무엇을</label><input class="field" id="rName" maxlength="40" value="' + esc(z ? z.name : '') + '" placeholder="예: 규카츠 모토무라 예약, 인천→나리타 KE703" list="rList"><datalist id="rList">' + food.map(t => '<option value="' + esc(t) + '">').join('') + '</datalist></div>' +
     '<div class="row"><label class="l" for="rTime">시간</label><input class="field" id="rTime" type="time" value="' + esc(z ? z.time : '') + '"></div>' +
     '<div class="btns">' + (z ? '<button class="btn danger" id="rDel" style="margin-right:auto">삭제</button>' : '') + '<button class="btn" data-close>취소</button><button class="btn primary" id="rOk">' + (z ? '저장' : '추가') + '</button></div>', close => {
       const ok = () => {
