@@ -562,7 +562,7 @@ const tagChips = tags => (tags && tags.length ? '<span class="tchips">' + tags.m
 const cleanItems = a => Array.isArray(a) ? a.filter(x => x && typeof x === 'object').map(x => {
   const o = { id: String(x.id || uid()), text: String(x.text || '').slice(0, 300), done: !!x.done };
   if (x.area != null) o.area = String(x.area).slice(0, 40);
-  if (x.cat != null) o.cat = wcat(String(x.cat))[0];
+  if (x.cat != null) o.cat = String(x.cat).slice(0, 20); // keep categories this copy doesn't know yet
   if (Array.isArray(x.tags)) o.tags = x.tags.map(String).filter(t => TAG_IDS.has(t));
   if (isFinite(+x.lat) && isFinite(+x.lng) && x.lat !== '' && x.lat != null) { o.lat = +x.lat; o.lng = +x.lng; o.approx = !!x.approx; }
   if (x.addr) o.addr = String(x.addr).slice(0, 200);
